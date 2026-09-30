@@ -1,71 +1,113 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { MotionConfig } from "framer-motion";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { PartnerCard, type PartnerItem } from "./PartnerCard";
 
-type PartnerItem = { id: number; name: string; logo: string; url: string };
+/** Which card is raised, and whether a click/tap pinned it (vs. a passing hover). */
+type Active = { id: number; pinned: boolean } | null;
+
+/** Hover-out grace period: sweeping across the wall keeps the spotlight instead of flickering. */
+const HOVER_OUT_MS = 140;
 
 /**
- * Uniform partner logo wall: site-matched beige cards + the site's corner
- * radius, logos in their own colors on a transparent background,
- * staggered entrance motion and a hover lift.
+ * The partner wall: centered rows of cards that raise on hover / tap.
+ *
+ * One interaction model on every device:
+ *  - mouse / pen: hover raises a card, click pins it open
+ *  - touch: tap raises (and pins) a card, tap again closes it
+ *  - keyboard: Enter / Space opens, Tab reaches the link, Esc closes
+ * Only one card is raised at a time; tapping outside dismisses it.
+ *
+ * `reducedMotion="user"` makes every transform animation instant for people
+ * who ask for less motion (opacity still fades), so nothing here needs its
+ * own reduced-motion branch.
  */
 export function PartnersGrid({ partners }: { partners: PartnerItem[] }) {
-  const reduceMotion = useReducedMotion();
+  const [active, setActive] = useState<Active>(null);
+  const hoverOut = useRef<number | null>(null);
+
+  const cancelHoverOut = useCallback(() => {
+    if (hoverOut.current !== null) {
+      window.clearTimeout(hoverOut.current);
+      hoverOut.current = null;
+    }
+  }, []);
+
+  const preview = useCallback(
+    (id: number) => {
+      cancelHoverOut();
+      setActive((a) => (a && a.id === id ? a : { id, pinned: false }));
+    },
+    [cancelHoverOut],
+  );
+
+  const previewEnd = useCallback(
+    (id: number) => {
+      cancelHoverOut();
+      hoverOut.current = window.setTimeout(() => {
+        hoverOut.current = null;
+        setActive((a) => (a && a.id === id && !a.pinned ? null : a));
+      }, HOVER_OUT_MS);
+    },
+    [cancelHoverOut],
+  );
+
+  const toggle = useCallback(
+    (id: number) => {
+      cancelHoverOut();
+      setActive((a) => (a && a.id === id && a.pinned ? null : { id, pinned: true }));
+    },
+    [cancelHoverOut],
+  );
+
+  const close = useCallback(
+    (id: number) => {
+      cancelHoverOut();
+      setActive((a) => (a && a.id === id ? null : a));
+    },
+    [cancelHoverOut],
+  );
+
+  // Tapping / clicking anywhere outside a card, or pressing Escape, puts the card back.
+  const isOpen = active !== null;
+  useEffect(() => {
+    if (!isOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target;
+      if (!(target instanceof Element) || !target.closest("[data-partner-card]")) setActive(null);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActive(null);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isOpen]);
+
+  useEffect(() => cancelHoverOut, [cancelHoverOut]);
 
   return (
-    <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-      {partners.map((p, i) => {
-        const inner = (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={p.logo}
-              alt={p.name}
-              loading="lazy"
-              className="h-full w-full object-contain transition-transform duration-500 ease-out group-hover:scale-[1.05]"
-            />
-            {p.url && (
-              <span className="absolute bottom-3 right-3 flex items-center gap-1 rounded-full bg-ink px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-sand opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                Visit ↗
-              </span>
-            )}
-          </>
-        );
-
-        const card = (
-          <div className="group relative flex aspect-[16/10] items-center justify-center overflow-hidden rounded-[var(--pc-radius,18px)] border border-ink/10 bg-paper p-6 shadow-[0_16px_36px_-24px_rgba(22,20,17,0.4)] transition-[border-color,box-shadow] duration-300 group-hover:border-clay/40 group-hover:shadow-[0_24px_48px_-22px_rgba(161,74,41,0.45)]">
-            {inner}
-          </div>
-        );
-
-        const motionProps = reduceMotion
-          ? {}
-          : {
-              initial: { opacity: 0, y: 28 },
-              whileInView: { opacity: 1, y: 0 },
-              viewport: { once: true, margin: "-40px" },
-              transition: { duration: 0.55, delay: i * 0.08, ease: [0.22, 1, 0.36, 1] as const },
-              whileHover: { y: -6 },
-            };
-
-        return (
-          <motion.div key={p.id} {...motionProps} className="h-full">
-            {p.url ? (
-              <a
-                href={p.url}
-                target="_blank"
-                rel="me noreferrer"
-                aria-label={`${p.name} — visit website`}
-                className="block h-full"
-              >
-                {card}
-              </a>
-            ) : (
-              <div aria-label={p.name}>{card}</div>
-            )}
-          </motion.div>
-        );
-      })}
-    </div>
+    <MotionConfig reducedMotion="user">
+      <ul role="list" className="pc-wall mt-12">
+        {partners.map((p, i) => (
+          <PartnerCard
+            key={p.id}
+            partner={p}
+            index={i}
+            popped={active?.id === p.id}
+            pinned={active?.id === p.id && active.pinned}
+            dimmed={active !== null && active.id !== p.id}
+            onPreview={() => preview(p.id)}
+            onPreviewEnd={() => previewEnd(p.id)}
+            onToggle={() => toggle(p.id)}
+            onClose={() => close(p.id)}
+          />
+        ))}
+      </ul>
+    </MotionConfig>
   );
 }

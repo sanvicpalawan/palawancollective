@@ -259,6 +259,69 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* Partners wall                                                        */
+/* Centered, wrapping rows: 2 / 3 / 5 cards per row, so a short last    */
+/* row sits in the middle instead of hanging off the left edge. The     */
+/* 0.5px keeps sub-pixel rounding from wrapping a row one card early.   */
+/* ------------------------------------------------------------------ */
+.pc-wall {
+  --gap: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--gap);
+}
+
+.pc-wall-item {
+  flex: 0 0 calc((100% - var(--gap) - 0.5px) / 2);
+}
+
+@media (min-width: 640px) {
+  .pc-wall {
+    --gap: 1rem;
+  }
+  .pc-wall-item {
+    flex-basis: calc((100% - 2 * var(--gap) - 0.5px) / 3);
+  }
+}
+
+@media (min-width: 1024px) {
+  .pc-wall {
+    --gap: 1.25rem;
+  }
+  .pc-wall-item {
+    flex-basis: calc((100% - 4 * var(--gap) - 0.5px) / 5);
+  }
+}
+
+/* Idle "buoy" drift: slow, tiny, and phase-shifted per card via CSS vars. */
+@keyframes pc-bob {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(0, -5px, 0) rotate(var(--bob-tilt, 0.35deg));
+  }
+}
+
+.pc-bob {
+  animation: pc-bob var(--bob-dur, 6.5s) ease-in-out var(--bob-delay, 0s) infinite;
+}
+
+/* A raised card holds still, so its "Visit site" button never drifts under the cursor.
+   Kept here (unlayered) because the animation shorthand above would override a utility class. */
+[data-popped="true"] .pc-bob {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-bob {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* Editorial details                                                    */
 /* ------------------------------------------------------------------ */
 .dropcap::first-letter {

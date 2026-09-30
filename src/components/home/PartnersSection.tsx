@@ -26,7 +26,7 @@ export async function PartnersSection({ section }: { section?: SiteSection }) {
           first={pick(section, "first", "Our")}
           second={pick(section, "second", "Partners")}
           description={
-            pick(section, "description", "The companies building and running this ecosystem with us. Tap a logo to visit their work.")
+            pick(section, "description", "The companies building and running this ecosystem with us. Hover or tap a logo to visit their work.")
           }
           href="/work-with-us?type=partner#inquire"
           linkLabel="Become a partner"
