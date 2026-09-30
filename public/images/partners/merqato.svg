@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" role="img" aria-labelledby="t d">
+  <title id="t">merQato.digital</title>
+  <desc id="d">merQato triple-stroke mark with the digital wordmark.</desc>
+  <g fill="none" stroke="#e02b2b" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M220 100 h92"/>
+    <path d="M312 100 L228 300"/>
+    <path d="M320 100 h92"/>
+    <path d="M412 100 L328 300"/>
+    <path d="M420 100 h92"/>
+    <path d="M512 100 L428 300"/>
+    <path d="M428 300 h92"/>
+  </g>
+  <text x="400" y="392" text-anchor="middle" fill="#e02b2b" font-family="Helvetica, Arial, sans-serif" font-size="54" letter-spacing="1">merQato.digital</text>
+</svg>
