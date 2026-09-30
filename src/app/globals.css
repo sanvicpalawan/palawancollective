@@ -159,11 +159,7 @@
   text-wrap: nowrap;
 }
 
-@media (min-width: 1024px) {
-  .hero-overlap {
-    margin-top: calc(var(--wt) * -0.26);
-  }
-}
+.hero-overlap { margin-top: 0; }
 
 .side-label {
   position: absolute;
