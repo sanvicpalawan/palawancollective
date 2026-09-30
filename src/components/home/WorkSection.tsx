@@ -1,8 +1,15 @@
 import { ButtonLink, Container, SectionHeading } from "@/components/ui";
 import type { SiteSection } from "@/db/schema";
-import { services, whatsappLink } from "@/lib/site";
+import { services as DEFAULT_SERVICES, whatsappLink, type ServiceItem } from "@/lib/site";
 
-export function WorkSection({ section }: { section?: SiteSection }) {
+export function WorkSection({
+  section,
+  services = [],
+}: {
+  section?: SiteSection;
+  services?: ServiceItem[];
+}) {
+  const items = services.length ? services : DEFAULT_SERVICES;
   const pick = (key: string, fallback: string): string => {
     const v = section?.data?.[key];
     return typeof v === "string" && v ? v : fallback;
@@ -20,7 +27,7 @@ export function WorkSection({ section }: { section?: SiteSection }) {
         />
 
         <div className="mt-12 grid overflow-hidden rounded-[var(--pc-radius,18px)] border-l border-t border-ink/15 sm:grid-cols-2 lg:grid-cols-4">
-          {services.map((service) => (
+          {items.map((service) => (
             <article key={service.id} className="flex flex-col border-b border-r border-ink/15 p-6 md:p-7">
               <span className="font-serif text-[3rem] font-light leading-none text-clay">{service.number}</span>
               <h3 className="mt-6 font-serif text-[1.55rem] leading-[1.1]">

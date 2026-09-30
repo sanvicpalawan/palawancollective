@@ -14,9 +14,10 @@ export async function GET() {
       getGalleries(true),
       getSocialLinks(true).catch(() => []),
     ]);
+    // no-cache → every admin save is visible on the next page load
     return Response.json(
       { ok: true, settings, design, nav, sections, faqs, galleries, socials },
-      { headers: { "Cache-Control": "public, max-age=60" } },
+      { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
     console.error("[public/site]", error);

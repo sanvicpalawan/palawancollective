@@ -121,19 +121,25 @@ export function timeShort(iso: string | Date): string {
 
 const NAV: Array<{ view: OpsView; label: string; code: string }> = [
   { view: "overview", label: "Overview", code: "00" },
-  { view: "content", label: "Content Builder", code: "01" },
-  { view: "design", label: "Design System", code: "02" },
-  { view: "media", label: "Media Library", code: "03" },
-  { view: "navigation", label: "Navigation", code: "04" },
-  { view: "newsletter", label: "Newsletter", code: "05" },
-  { view: "faq", label: "FAQ", code: "06" },
-  { view: "gallery", label: "Galleries", code: "07" },
-  { view: "agents", label: "Agents", code: "08" },
-  { view: "models", label: "Models", code: "09" },
-  { view: "settings", label: "Settings", code: "10" },
-  { view: "social", label: "Social", code: "11" },
-  { view: "logo", label: "Logo", code: "12" },
-  { view: "partners", label: "Partners", code: "13" },
+  { view: "images", label: "Site images", code: "01" },
+  { view: "content", label: "Content builder", code: "02" },
+  { view: "stories", label: "Stories", code: "03" },
+  { view: "built", label: "Built", code: "04" },
+  { view: "palawan", label: "Palawan", code: "05" },
+  { view: "systems", label: "Systems", code: "06" },
+  { view: "work", label: "Work with us", code: "07" },
+  { view: "design", label: "Design system", code: "08" },
+  { view: "media", label: "Media library", code: "09" },
+  { view: "navigation", label: "Navigation", code: "10" },
+  { view: "newsletter", label: "Newsletter", code: "11" },
+  { view: "faq", label: "FAQ", code: "12" },
+  { view: "gallery", label: "Galleries", code: "13" },
+  { view: "agents", label: "Agents", code: "14" },
+  { view: "models", label: "Models", code: "15" },
+  { view: "settings", label: "Settings", code: "16" },
+  { view: "social", label: "Social", code: "17" },
+  { view: "logo", label: "Logo", code: "18" },
+  { view: "partners", label: "Partners", code: "19" },
 ];
 
 function Toasts() {
@@ -456,7 +462,7 @@ export function VersionsPanel({ compact = false }: { compact?: boolean }) {
       right={
         <select value={filter} onChange={(e) => setFilter(e.target.value)} className="ops-inp !w-auto !py-1.5 font-mono text-[12px]" aria-label="Filter versions">
           <option value="">all</option>
-          {["section", "design", "faq", "gallery", "nav", "agent", "settings"].map((t) => (
+          {["section", "design", "faq", "gallery", "nav", "agent", "settings", "story", "build", "guide", "image", "catalog"].map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
         </select>

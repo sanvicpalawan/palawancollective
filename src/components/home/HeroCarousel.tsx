@@ -60,14 +60,21 @@ const AUTOPLAY_MS = 6000;
  *  - segmented progress bar below the stage — it IS the autoplay timer,
  *    so pause/resume and jump-to-slide stay perfectly in sync
  *  - glass circular arrows + counter, pausable on hover/focus, swipeable
+ *
+ * `slides` comes from the ops-editable `hero_slides` setting; the shipped
+ * SLIDES array is the fallback when nothing has been saved yet.
  */
-export function HeroCarousel() {
-  const [index, setIndex] = useState(0);
+export function HeroCarousel({ slides = [] }: { slides?: Slide[] }) {
+  const items = slides.length ? slides : SLIDES;
+  const [rawIndex, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const reduceMotion = useReducedMotion();
   const touchX = useRef<number | null>(null);
+  // Slide count can change when ops saves new photos — clamp at render rather
+  // than correcting in an effect (the count only ever shrinks while mounted).
+  const index = rawIndex < items.length ? rawIndex : 0;
 
-  const go = useCallback((dir: 1 | -1) => setIndex((i) => (i + dir + SLIDES.length) % SLIDES.length), []);
+  const go = useCallback((dir: 1 | -1) => setIndex((i) => (i + dir + items.length) % items.length), [items.length]);
   const jump = useCallback((i: number) => setIndex(i), []);
 
   // With reduced motion the progress-bar animation is off, so a timer drives autoplay instead.
@@ -77,7 +84,10 @@ export function HeroCarousel() {
     return () => window.clearTimeout(t);
   }, [index, paused, reduceMotion, go]);
 
-  const slide = SLIDES[index];
+  // Slide count can change when ops saves new photos — `index` is clamped at
+  // render, so the stage is always in range without a corrective effect.
+  const slide = items[index];
+  if (!slide) return null;
 
   return (
     <div
@@ -102,7 +112,7 @@ export function HeroCarousel() {
         }}
       >
         <AnimatePresence initial={false} mode="popLayout">
-          {SLIDES.map((s, i) =>
+          {items.map((s, i) =>
             i === index ? (
               <motion.div
                 key={s.src}
@@ -138,7 +148,7 @@ export function HeroCarousel() {
             {slide.tag}
           </span>
           <span className="rounded-full bg-ink/45 px-3 py-1.5 font-mono text-[10px] tracking-[0.16em] text-sand backdrop-blur-md">
-            {String(index + 1).padStart(2, "0")} — {String(SLIDES.length).padStart(2, "0")}
+            {String(index + 1).padStart(2, "0")} — {String(items.length).padStart(2, "0")}
           </span>
         </div>
 
@@ -180,7 +190,7 @@ export function HeroCarousel() {
 
       {/* Segmented progress — clickable, and it is the autoplay timer */}
       <div className="mt-4 flex items-center gap-1.5" role="tablist" aria-label="Choose photo">
-        {SLIDES.map((s, i) => (
+        {items.map((s, i) => (
           <button
             key={s.src}
             role="tab"

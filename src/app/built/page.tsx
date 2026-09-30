@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, ButtonLink, Container, StatusChip, cn } from "@/components/ui";
 import { getBuilds } from "@/lib/data";
+import { getSettingsMap, setting } from "@/lib/control";
 import { pad2 } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,12 @@ export const metadata: Metadata = {
 
 export default async function BuiltPage() {
   const builds = await getBuilds();
+  let headerImage = "/images/page-built.jpg";
+  try {
+    headerImage = setting<string>(await getSettingsMap(), "page_image_built", headerImage);
+  } catch {
+    /* default keeps the page alive */
+  }
 
   return (
     <>
@@ -36,7 +43,7 @@ export default async function BuiltPage() {
       <Container className="mt-12">
         <figure className="relative aspect-[16/9] overflow-hidden rounded-[var(--pc-radius,18px)] bg-ink shadow-[0_24px_50px_-25px_rgba(22,20,17,0.5)] md:aspect-[21/8]">
           <Image
-            src="/images/page-built.jpg"
+            src={headerImage}
             alt="Thatched-roof houses in a lush tropical village"
             fill
             preload

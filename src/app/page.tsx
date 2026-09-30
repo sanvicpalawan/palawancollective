@@ -9,7 +9,7 @@ import { SystemsSection } from "@/components/home/SystemsSection";
 import { WorkSection } from "@/components/home/WorkSection";
 import { CustomSection, FaqSection, GallerySection } from "@/components/ops/DynamicSections";
 import type { Faq, Gallery, SiteSection } from "@/db/schema";
-import { getFaqs, getGalleries, getPublishedSections, getSettingsMap, setting } from "@/lib/control";
+import { getCatalog, getFaqs, getGalleries, getPublishedSections, getSettingsMap, setting } from "@/lib/control";
 import { getBuilds, getFieldLog, getGuides, getStories } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
@@ -45,16 +45,25 @@ export default async function HomePage() {
     sections = [];
   }
 
+  // Systems + Work collections live in settings so ops can edit them.
+  let catalog: Awaited<ReturnType<typeof getCatalog>> = { systems: [], services: [] };
+  try {
+    catalog = await getCatalog();
+  } catch {
+    catalog = { systems: [], services: [] };
+  }
+
   if (sections.length === 0) {
     return (
       <>
-        <Hero />
+        <Hero settings={settings} />
         <StatusStrip latest={stories[0]} lastLog={log[0]} />
         <BuiltSection builds={builds} />
         <StoriesSection featured={featured} stories={others.slice(0, 6)} log={log} />
         <FieldNotesSection recent={stories.slice(0, 3)} />
         <PartnersSection />
-        <WorkSection />
+        <WorkSection services={catalog.services} />
+        <SystemsSection systems={catalog.systems} />
         <PalawanSection guides={guides} />
       </>
     );
@@ -92,9 +101,9 @@ export default async function HomePage() {
           case "partners":
             return <PartnersSection key={s.id} section={s} />;
           case "systems":
-            return <SystemsSection key={s.id} section={s} />;
+            return <SystemsSection key={s.id} section={s} systems={catalog.systems} />;
           case "work":
-            return <WorkSection key={s.id} section={s} />;
+            return <WorkSection key={s.id} section={s} services={catalog.services} />;
           case "faq":
             return <FaqSection key={s.id} faqs={faqs} section={s} />;
           case "gallery": {

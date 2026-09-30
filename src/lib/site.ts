@@ -44,13 +44,25 @@ export const navItems = [
 
 export type SystemIcon = "sun" | "chat" | "agent" | "approve" | "layers";
 
-export const systems: {
+export type SystemItem = {
   code: string;
   icon: SystemIcon;
   title: string;
   detail: string;
   parts: string[];
-}[] = [
+};
+
+export type ServiceItem = {
+  id: string;
+  number: string;
+  title: string;
+  qualifier?: string;
+  summary: string;
+  format: string;
+  includes: string[];
+};
+
+export const systems: SystemItem[] = [
   {
     code: "S/01",
     icon: "sun",
@@ -89,15 +101,7 @@ export const systems: {
   },
 ];
 
-export const services: {
-  id: string;
-  number: string;
-  title: string;
-  qualifier?: string;
-  summary: string;
-  format: string;
-  includes: string[];
-}[] = [
+export const services: ServiceItem[] = [
   {
     id: "resort",
     number: "01",

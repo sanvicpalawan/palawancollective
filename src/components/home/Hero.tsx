@@ -23,6 +23,9 @@ export function Hero({ settings }: { settings?: Record<string, unknown> }) {
   const role = str("hero_role", site.role);
   const intro = str("hero_intro", site.intro);
   const heroLogo = str("site_logo", "/images/palawan-collective-wordmark.svg");
+  const slides = Array.isArray(settings?.hero_slides)
+    ? (settings.hero_slides as Array<{ src: string; alt: string; caption: string; tag: string; location: string }>)
+    : [];
   return (
     <Container className="pt-8 md:pt-12">
       <section className="hero relative isolate" aria-labelledby="hero-title">
@@ -82,7 +85,7 @@ export function Hero({ settings }: { settings?: Record<string, unknown> }) {
 
           {/* Image carousel — overlaps the masthead on desktop */}
           <div className="hero-overlap relative lg:col-span-7">
-            <HeroCarousel />
+            <HeroCarousel slides={slides} />
           </div>
         </div>
 

@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Container, Icon } from "@/components/ui";
 import { getGuides } from "@/lib/data";
+import { getSettingsMap, setting } from "@/lib/control";
 import { formatDate, pad2 } from "@/lib/format";
 import { whatsappLink } from "@/lib/site";
 
@@ -26,6 +27,12 @@ const travelTimes = [
 
 export default async function PalawanPage() {
   const guides = await getGuides();
+  let headerImage = "/images/page-palawan.jpg";
+  try {
+    headerImage = setting<string>(await getSettingsMap(), "page_image_palawan", headerImage);
+  } catch {
+    /* default keeps the page alive */
+  }
   const lastVerified = guides.reduce<Date | null>(
     (latest, g) => (!latest || g.verifiedAt > latest ? g.verifiedAt : latest),
     null,
@@ -57,7 +64,7 @@ export default async function PalawanPage() {
           <figure className="lg:col-span-5">
             <div className="relative aspect-[4/5] overflow-hidden rounded-t-full bg-ink/10">
               <Image
-                src="/images/page-palawan.jpg"
+                src={headerImage}
                 alt="Outrigger boats beneath limestone cliffs in northern Palawan"
                 fill
                 preload

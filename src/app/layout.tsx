@@ -5,7 +5,7 @@ import { AgentChat } from "@/components/ops/AgentChat";
 import { Runtime } from "@/components/ops/Runtime";
 import { SiteFooter } from "@/components/site/SiteFooter";
 import { SiteHeader } from "@/components/site/SiteHeader";
-import { getDesign } from "@/lib/control";
+import { getDesign, getSettingsMap, setting } from "@/lib/control";
 import { DEFAULT_DESIGN, designCssVars } from "@/lib/design";
 import { site } from "@/lib/site";
 import "./globals.css";
@@ -22,34 +22,45 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "sw
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap" });
 const caveat = Caveat({ subsets: ["latin"], variable: "--font-caveat", display: "swap" });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(site.url),
-  title: {
-    default: "Palawan Collective — Field notes from building in Palawan",
-    template: "%s — Palawan Collective",
-  },
-  description: site.positioning,
-  applicationName: site.name,
-  authors: [{ name: site.person }],
-  keywords: [
-    "Palawan",
-    "off-grid resort",
-    "El Nido",
-    "automation",
-    "AI agents",
-    "Philippines infrastructure",
-    "field notes",
-  ],
-  openGraph: {
-    type: "website",
-    siteName: site.name,
-    title: "Palawan Collective",
-    description: site.positioning,
-    images: [{ url: "/images/hero-build.jpg", width: 1800, height: 1352, alt: "Crew framing a timber roof in a jungle clearing" }],
-  },
-  twitter: { card: "summary_large_image", title: "Palawan Collective", description: site.positioning },
-  alternates: { types: { "application/rss+xml": [{ url: "/feed.xml", title: "Palawan Collective — Field Notes" }] } },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  let ogImage = "/images/hero-build.jpg";
+  let description = site.positioning;
+  try {
+    const map = await getSettingsMap();
+    ogImage = setting<string>(map, "og_image", ogImage);
+    description = setting<string>(map, "positioning", description);
+  } catch {
+    /* defaults keep the share card working */
+  }
+  return {
+    metadataBase: new URL(site.url),
+    title: {
+      default: "Palawan Collective — Field notes from building in Palawan",
+      template: "%s — Palawan Collective",
+    },
+    description,
+    applicationName: site.name,
+    authors: [{ name: site.person }],
+    keywords: [
+      "Palawan",
+      "off-grid resort",
+      "El Nido",
+      "automation",
+      "AI agents",
+      "Philippines infrastructure",
+      "field notes",
+    ],
+    openGraph: {
+      type: "website",
+      siteName: site.name,
+      title: "Palawan Collective",
+      description,
+      images: [{ url: ogImage, width: 1800, height: 1352, alt: "Palawan Collective" }],
+    },
+    twitter: { card: "summary_large_image", title: "Palawan Collective", description },
+    alternates: { types: { "application/rss+xml": [{ url: "/feed.xml", title: "Palawan Collective — Field Notes" }] } },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: "#f2ece3",

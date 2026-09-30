@@ -1,8 +1,15 @@
 import { Container, Icon, SectionHeading } from "@/components/ui";
 import type { SiteSection } from "@/db/schema";
-import { systems } from "@/lib/site";
+import { systems as DEFAULT_SYSTEMS, type SystemItem } from "@/lib/site";
 
-export function SystemsSection({ section }: { section?: SiteSection }) {
+export function SystemsSection({
+  section,
+  systems = [],
+}: {
+  section?: SiteSection;
+  systems?: SystemItem[];
+}) {
+  const items = systems.length ? systems : DEFAULT_SYSTEMS;
   const pick = (key: string, fallback: string): string => {
     const v = section?.data?.[key];
     return typeof v === "string" && v ? v : fallback;
@@ -32,7 +39,7 @@ export function SystemsSection({ section }: { section?: SiteSection }) {
           </figure>
 
           <ol className="border-t border-ink/15 lg:col-span-8">
-            {systems.map((system) => (
+            {items.map((system) => (
               <li
                 key={system.code}
                 className="group grid gap-5 border-b border-ink/15 py-7 md:grid-cols-[4.5rem_1fr_13rem] md:gap-8"

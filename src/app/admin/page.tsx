@@ -10,6 +10,9 @@ import { AgentsPanel, ModelsPanel } from "@/components/ops/panels-agents";
 import { SocialPanel } from "@/components/ops/panels-social";
 import { PartnersPanel } from "@/components/ops/panels-partners";
 import { LogoPanel } from "@/components/ops/panels-logo";
+import { ImagesPanel } from "@/components/ops/panels-images";
+import { BuiltPanel, PalawanPanel, StoriesPanel } from "@/components/ops/panels-entries";
+import { SystemsPanel, WorkPanel } from "@/components/ops/panels-catalog";
 import { consumeHashToken, getOpsToken, isFramed, setOpsToken, useOpsStore } from "@/lib/admin-store";
 
 export const dynamic = "force-dynamic";
@@ -156,6 +159,18 @@ export default function AdminPage() {
         switch (view) {
           case "overview":
             return <OverviewPanel />;
+          case "images":
+            return <ImagesPanel />;
+          case "stories":
+            return <StoriesPanel />;
+          case "built":
+            return <BuiltPanel />;
+          case "palawan":
+            return <PalawanPanel />;
+          case "systems":
+            return <SystemsPanel />;
+          case "work":
+            return <WorkPanel />;
           case "content":
             return <ContentPanel />;
           case "design":

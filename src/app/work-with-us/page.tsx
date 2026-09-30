@@ -3,6 +3,7 @@ import Image from "next/image";
 import { InquiryForm } from "@/components/InquiryForm";
 import { ButtonLink, Container, Icon } from "@/components/ui";
 import { services, site, whatsappDisplay, whatsappLink } from "@/lib/site";
+import { getCatalog, getSettingsMap, setting } from "@/lib/control";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,16 @@ export default async function WorkWithUsPage({ searchParams }: Props) {
   const { type } = await searchParams;
   const initialKind = type === "partner" ? "partner" : "project";
 
+  let serviceItems = services;
+  let headerImage = "/images/page-work.jpg";
+  try {
+    const [catalog, settings] = await Promise.all([getCatalog(), getSettingsMap()]);
+    if (catalog.services.length) serviceItems = catalog.services;
+    headerImage = setting<string>(settings, "page_image_work", headerImage);
+  } catch {
+    /* defaults keep the page alive */
+  }
+
   return (
     <>
       <Container className="pt-10 md:pt-14">
@@ -65,7 +76,7 @@ export default async function WorkWithUsPage({ searchParams }: Props) {
       <Container className="mt-12">
         <figure className="relative aspect-[16/9] overflow-hidden rounded-[var(--pc-radius,18px)] bg-ink/10 shadow-[0_24px_50px_-25px_rgba(22,20,17,0.45)] md:aspect-[21/8]">
           <Image
-            src="/images/page-work.jpg"
+            src={headerImage}
             alt="Two construction workers on bamboo scaffolding"
             fill
             preload
@@ -77,7 +88,7 @@ export default async function WorkWithUsPage({ searchParams }: Props) {
 
       <Container className="mt-16">
         <div className="grid overflow-hidden rounded-[var(--pc-radius,18px)] border-l border-t border-ink/15 md:grid-cols-2">
-          {services.map((service) => (
+          {serviceItems.map((service) => (
             <article key={service.id} className="grid gap-6 border-b border-r border-ink/15 p-6 md:p-9 lg:grid-cols-[5rem_1fr]">
               <span className="font-serif text-[3.2rem] font-light leading-none text-clay">{service.number}</span>
               <div>

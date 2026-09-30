@@ -29,6 +29,8 @@ import type {
   SocialLink,
 } from "@/db/schema";
 import { mediaAssets } from "@/db/schema";
+import { services as DEFAULT_SERVICES, systems as DEFAULT_SYSTEMS } from "./site";
+import type { ServiceItem, SystemItem } from "./site";
 
 /* ------------------------------------------------------------------ */
 /* Defaults                                                              */
@@ -62,7 +64,52 @@ export const DEFAULT_SETTINGS: Record<string, unknown> = {
   chat_enabled: true,
   chat_title: "Palawan Operator",
   chat_greeting: "Hi — I run the front desk here. Ask about the builds, the stories, or getting around Palawan.",
+  // Page-header photos + share card (previously hardcoded in the JSX).
+  og_image: "/images/hero-build.jpg",
+  page_image_work: "/images/page-work.jpg",
+  page_image_built: "/images/page-built.jpg",
+  page_image_palawan: "/images/page-palawan.jpg",
+  // Home hero carousel. Edited from Ops → Site images.
+  hero_slides: [
+    {
+      src: "/images/hero-build.jpg",
+      alt: "Crew framing a timber roof in a jungle clearing",
+      caption: "Roof framing, before the rains",
+      tag: "Build",
+      location: "Site 01 · Northern Palawan",
+    },
+    {
+      src: "/images/story-no-road.jpg",
+      alt: "Workers unloading cargo from a boat across a wooden plank at first light",
+      caption: "Unloading at high tide",
+      tag: "Logistics",
+      location: "Landing beach · 06:10",
+    },
+    {
+      src: "/images/page-palawan.jpg",
+      alt: "Outrigger boats beneath limestone cliffs in northern Palawan",
+      caption: "Bangkas under the limestone",
+      tag: "Palawan",
+      location: "Northern coast",
+    },
+    {
+      src: "/images/story-off-grid.jpg",
+      alt: "An electrician wiring a solar power system",
+      caption: "Power room wiring",
+      tag: "Off-grid",
+      location: "Site 01 · Power shed",
+    },
+    {
+      src: "/images/built-infrastructure.jpg",
+      alt: "Colourful outrigger boats moored in a Filipino harbour",
+      caption: "Supply day at the harbour",
+      tag: "Network",
+      location: "Taytay",
+    },
+  ] satisfies HeroSlide[],
 };
+
+export type HeroSlide = { src: string; alt: string; caption: string; tag: string; location: string };
 
 export const DEFAULT_AGENT_PROMPT =
   "You are the operator of Palawan Collective. You help users understand the ecosystem, navigate Palawan, explore projects, and take action.";
@@ -76,10 +123,11 @@ const SECTION_SEEDS: SectionSeed[] = [
   { key: "stories", type: "story-blocks", title: "Stories", position: 3, data: { index: "02", first: "Stories", note: "Not a blog." } },
   { key: "fieldnotes", type: "newsletter", title: "Field Notes", position: 4, data: { index: "03" } },
   { key: "partners", type: "partners", title: "Our Partners", position: 5, data: { index: "04" } },
-  { key: "work", type: "cta", title: "Work With Us", position: 6, data: { index: "05", first: "Work", second: "With Us" } },
-  { key: "faq", type: "faq", title: "FAQ", position: 7, data: { index: "06", first: "Questions", second: "Answered" } },
-  { key: "gallery", type: "gallery", title: "Field Gallery", position: 8, data: { index: "07", gallerySlug: "site-01-build-diary" } },
-  { key: "palawan", type: "grid", title: "Navigating Palawan", position: 9, data: { index: "08", first: "Navigating", second: "Palawan" } },
+  { key: "systems", type: "grid", title: "Systems We Build", position: 6, data: { index: "05", first: "Systems", second: "We Build" } },
+  { key: "work", type: "cta", title: "Work With Us", position: 7, data: { index: "06", first: "Work", second: "With Us" } },
+  { key: "faq", type: "faq", title: "FAQ", position: 8, data: { index: "07", first: "Questions", second: "Answered" } },
+  { key: "gallery", type: "gallery", title: "Field Gallery", position: 9, data: { index: "08", gallerySlug: "site-01-build-diary" } },
+  { key: "palawan", type: "grid", title: "Navigating Palawan", position: 10, data: { index: "09", first: "Navigating", second: "Palawan" } },
 ];
 
 const NAV_SEEDS = [
@@ -160,7 +208,18 @@ function ensureControlSeeded(): Promise<void> {
       }
       const design = await db.select({ id: designTokens.id }).from(designTokens).limit(1);
       if (design.length === 0) await db.insert(designTokens).values({ tokens: DEFAULT_DESIGN });
-      const sections = await db.select({ key: siteSections.key }).from(siteSections);
+      const sections = await db.select({ key: siteSections.key, position: siteSections.position }).from(siteSections);
+      // One-time: DBs seeded before the Systems block existed need the tail
+      // (position >= 6) pushed down a slot so Systems lands at 6 without
+      // colliding with Work With Us. Fresh DBs have no rows to shift.
+      if (sections.length > 0 && !sections.some((s) => s.key === "systems")) {
+        for (const s of sections.filter((x) => x.position >= 6)) {
+          await db
+            .update(siteSections)
+            .set({ position: s.position + 1, updatedAt: new Date() })
+            .where(eq(siteSections.key, s.key));
+        }
+      }
       const haveSections = new Set(sections.map((r) => r.key));
       for (const s of SECTION_SEEDS) {
         if (!haveSections.has(s.key)) {
@@ -282,6 +341,41 @@ export async function getSettingsMap(): Promise<Record<string, unknown>> {
   const map: Record<string, unknown> = { ...DEFAULT_SETTINGS };
   for (const row of rows) map[row.key] = row.value;
   return map;
+}
+
+/**
+ * Editable copies of the Systems + Work With Us collections. They ship with the
+ * defaults from `lib/site.ts` and are stored in `site_settings` once an operator
+ * edits them, so the live site keeps rendering even when the DB is unreachable.
+ */
+export type Catalog = { systems: SystemItem[]; services: ServiceItem[] };
+
+export async function getCatalog(): Promise<Catalog> {
+  let map: Record<string, unknown> = {};
+  try {
+    map = await getSettingsMap();
+  } catch {
+    map = {};
+  }
+  const systems = map.systems_catalog;
+  const services = map.services_catalog;
+  return {
+    systems: Array.isArray(systems) && systems.length ? (systems as SystemItem[]) : DEFAULT_SYSTEMS,
+    services: Array.isArray(services) && services.length ? (services as ServiceItem[]) : DEFAULT_SERVICES,
+  };
+}
+
+export async function saveCatalog(catalog: Catalog): Promise<Catalog> {
+  for (const [key, value] of [
+    ["systems_catalog", catalog.systems],
+    ["services_catalog", catalog.services],
+  ] as const) {
+    await db
+      .insert(siteSettings)
+      .values({ key, value, updatedAt: new Date() })
+      .onConflictDoUpdate({ target: siteSettings.key, set: { value, updatedAt: new Date() } });
+  }
+  return catalog;
 }
 
 export function setting<T>(map: Record<string, unknown>, key: string, fallback: T): T {
