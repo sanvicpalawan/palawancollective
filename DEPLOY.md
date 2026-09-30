@@ -22,9 +22,11 @@ Vercel with zero extra services.
 3. **Apply the schema to Neon** (from your machine, with a `.env` whose
    `DATABASE_URL` points at Neon):
    ```
-   npx drizzle-kit push --force
+   npm run db:push
    ```
    (No schema changes needed later — re-run `push` after any schema edit.)
+   Prefer no terminal? Paste [`drizzle/0000_initial.sql`](./drizzle/0000_initial.sql)
+   into the Neon **SQL Editor** and run it.
 4. **Import the repo in Vercel** — New Project → import the GitHub repo.
    Framework: Next.js (auto-detected). No build command changes.
 5. **Set Vercel environment variables** (Project → Settings →
@@ -44,11 +46,11 @@ Vercel with zero extra services.
 1. Neon console → **New Project** → pick a region (e.g. `us-east-1`, or
    `ap-southeast-1` for lower latency to the Philippines).
 2. **Connection Details → Pooled connection string**
-   (the one ending in `?pgbouncer=true`).
+   (the host contains `-pooler`).
 3. Put it in `.env` as `DATABASE_URL`:
 
    ```
-   DATABASE_URL=postgresql://USER:PASSWORD@ep-xxxx-pooler.us-east-2.aws.neon.tech/neondb?pgbouncer=true
+   DATABASE_URL=postgresql://USER:PASSWORD@ep-xxxx-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
    ```
 
    > Use the **pooled** string for a Next.js server. The direct (non-pooler)

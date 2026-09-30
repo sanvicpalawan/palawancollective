@@ -63,9 +63,13 @@ and carries a hidden ops console for managing every part of the site.
 
 cp .env.example .env          # 2 · fill in DATABASE_URL + the admin values
 npm install                   # 3
-npx drizzle-kit push --force  # 4 · create the schema in your database
+npm run db:push               # 4 · create the schema in your database
 npm run dev                   # 5 · → http://localhost:3000
 ```
+
+> No terminal on the machine holding your Neon keys? Open the Neon **SQL
+> Editor**, paste the contents of [`drizzle/0000_initial.sql`](./drizzle/0000_initial.sql)
+> and run it — same result as `npm run db:push`.
 
 Content (stories, builds, guides, FAQs, partners, agents, design tokens)
 seeds itself automatically on first use — no data setup required.
@@ -76,7 +80,7 @@ Copy `.env.example` → `.env` (git-ignored) and fill it in:
 
 | Variable | Required | Notes |
 | -------- | -------- | ----- |
-| `DATABASE_URL` | yes | Neon **pooled** connection string (ends with `?pgbouncer=true`), or a local Postgres URL |
+| `DATABASE_URL` | yes | Neon **pooled** connection string (host contains `-pooler`), or a local Postgres URL |
 | `ADMIN_PASSKEY` | yes in production | Credential that unlocks the ops console — **set your own value** |
 | `ADMIN_JWT_SECRET` | yes in production | Long random string that signs the session JWT; generate with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
 | `OPENROUTER_API_KEY` | for cloud agents | Can also be pasted in the console under Models |
@@ -133,6 +137,7 @@ guarded — nothing about the console is discoverable or crawlable.
 ├── .env.example                  # environment template (copy to .env)
 ├── DEPLOY.md                     # Neon + production deployment guide
 ├── drizzle.config.ts             # Drizzle Kit config — reads DATABASE_URL
+├── drizzle/                      # generated SQL migrations (paste-able into Neon)
 ├── eslint.config.mjs             # ESLint 9 flat config (next preset)
 ├── next.config.ts                # Next.js config
 ├── postcss.config.mjs            # Tailwind CSS 4 via PostCSS
@@ -214,7 +219,8 @@ new uploads are stored in Postgres in the `uploaded_files` table.
 | `npm run start` | Serve the production build |
 | `npm run lint` | ESLint over the repo |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npx drizzle-kit push --force` | Sync `src/db/schema.ts` to the database |
+| `npm run db:push` | Sync `src/db/schema.ts` to the database (`drizzle-kit push --force`) |
+| `npm run db:generate` | Write a versioned SQL migration into `drizzle/` |
 
 ## Deploy
 
