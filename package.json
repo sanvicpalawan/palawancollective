@@ -8,7 +8,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "db:push": "drizzle-kit push --force",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "db:setup": "node scripts/db-setup.mjs"
   },
   "dependencies": {
     "@types/qrcode": "^1.5.6",

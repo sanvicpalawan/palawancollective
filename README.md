@@ -63,13 +63,17 @@ and carries a hidden ops console for managing every part of the site.
 
 cp .env.example .env          # 2 · fill in DATABASE_URL + the admin values
 npm install                   # 3
-npm run db:push               # 4 · create the schema in your database
+npm run db:setup              # 4 · create + verify the schema in your database
 npm run dev                   # 5 · → http://localhost:3000
 ```
 
 > No terminal on the machine holding your Neon keys? Open the Neon **SQL
 > Editor**, paste the contents of [`drizzle/0000_initial.sql`](./drizzle/0000_initial.sql)
-> and run it — same result as `npm run db:push`.
+> and run it — same result as `npm run db:setup`.
+
+`db:setup` is safe to re-run: it applies the schema when the database is empty,
+reports what it found when it isn't, and prints a summary of your tables and
+seeded content so you always know which database you're pointed at.
 
 Content (stories, builds, guides, FAQs, partners, agents, design tokens)
 seeds itself automatically on first use — no data setup required.
@@ -138,6 +142,8 @@ guarded — nothing about the console is discoverable or crawlable.
 ├── DEPLOY.md                     # Neon + production deployment guide
 ├── drizzle.config.ts             # Drizzle Kit config — reads DATABASE_URL
 ├── drizzle/                      # generated SQL migrations (paste-able into Neon)
+├── scripts/
+│   └── db-setup.mjs              # `npm run db:setup` — create + verify the schema
 ├── eslint.config.mjs             # ESLint 9 flat config (next preset)
 ├── next.config.ts                # Next.js config
 ├── postcss.config.mjs            # Tailwind CSS 4 via PostCSS
@@ -219,6 +225,7 @@ new uploads are stored in Postgres in the `uploaded_files` table.
 | `npm run start` | Serve the production build |
 | `npm run lint` | ESLint over the repo |
 | `npm run typecheck` | `tsc --noEmit` |
+| `npm run db:setup` | Create + verify the schema (safe to re-run; friendly output) |
 | `npm run db:push` | Sync `src/db/schema.ts` to the database (`drizzle-kit push --force`) |
 | `npm run db:generate` | Write a versioned SQL migration into `drizzle/` |
 

@@ -22,11 +22,11 @@ Vercel with zero extra services.
 3. **Apply the schema to Neon** (from your machine, with a `.env` whose
    `DATABASE_URL` points at Neon):
    ```
-   npm run db:push
+   npm run db:setup
    ```
-   (No schema changes needed later — re-run `push` after any schema edit.)
-   Prefer no terminal? Paste [`drizzle/0000_initial.sql`](./drizzle/0000_initial.sql)
-   into the Neon **SQL Editor** and run it.
+   Safe to re-run — it applies [`drizzle/0000_initial.sql`](./drizzle/0000_initial.sql)
+   when the database is empty and otherwise reports what it found. Prefer no
+   terminal at all? Paste that same SQL file into the Neon **SQL Editor** and run it.
 4. **Import the repo in Vercel** — New Project → import the GitHub repo.
    Framework: Next.js (auto-detected). No build command changes.
 5. **Set Vercel environment variables** (Project → Settings →
