@@ -36,11 +36,20 @@ export async function POST(request: Request) {
   if (!title) {
     return withOpsRefresh(Response.json({ ok: false, error: "Title is required." }, { status: 400 }), gate.refresh);
   }
-  let slug = slugify(str(body.slug, 120)) || slugify(title);
+  const typedSlug = slugify(str(body.slug, 120));
+  let slug = typedSlug || slugify(title);
   if (!slug) {
     return withOpsRefresh(Response.json({ ok: false, error: "Could not build a slug from that title." }, { status: 400 }), gate.refresh);
   }
-  if (await slugTaken(slug)) slug = `${slug}-${Date.now().toString(36).slice(-4)}`;
+  if (await slugTaken(slug)) {
+    // A slug the operator typed by hand must not silently change the URL they
+    // expect; one derived from a duplicate title gets a suffix instead so
+    // publishing is never blocked.
+    if (typedSlug) {
+      return withOpsRefresh(Response.json({ ok: false, error: "That slug is already in use." }, { status: 409 }), gate.refresh);
+    }
+    slug = `${slug}-${Date.now().toString(36).slice(-4)}`;
+  }
 
   const [row] = await db
     .insert(guides)
