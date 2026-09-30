@@ -13,7 +13,7 @@ import { LogoPanel } from "@/components/ops/panels-logo";
 import { ImagesPanel } from "@/components/ops/panels-images";
 import { BuiltPanel, PalawanPanel, StoriesPanel } from "@/components/ops/panels-entries";
 import { SystemsPanel, WorkPanel } from "@/components/ops/panels-catalog";
-import { consumeHashToken, getOpsToken, isFramed, setOpsToken, useOpsStore } from "@/lib/admin-store";
+import { getOpsToken, setOpsToken, useOpsStore } from "@/lib/admin-store";
 
 export const dynamic = "force-dynamic";
 
@@ -22,12 +22,7 @@ function LockedLogin() {
   const [passkey, setPasskey] = useState("");
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  const [framed, setFramed] = useState(false);
   const controls = useAnimationControls();
-
-  useEffect(() => {
-    setFramed(isFramed());
-  }, []);
 
   async function fail() {
     setFailed(true);
@@ -97,20 +92,6 @@ function LockedLogin() {
             Incorrect passkey — try again.
           </p>
         )}
-        {framed && (
-          <div className="mt-5 border border-amber-300/30 bg-amber-400/10 p-3">
-            <p className="font-mono text-[11px] leading-relaxed text-amber-200">
-              Embedded preview detected — if login loops here, open the console in its own tab:
-            </p>
-            <button
-              type="button"
-              onClick={() => window.open(window.location.href, "_blank", "noopener")}
-              className="mt-2 w-full border border-amber-300/50 py-2 font-mono text-[12px] uppercase tracking-[0.15em] text-amber-200 transition-colors hover:bg-amber-400/20"
-            >
-              Open console in new tab ↗
-            </button>
-          </div>
-        )}
         <Link
           href="/"
           className="mt-6 inline-block font-mono text-[12px] uppercase tracking-[0.15em] text-stone-500 hover:text-white"
@@ -126,9 +107,6 @@ export default function AdminPage() {
   const { session, setSession } = useOpsStore();
 
   useEffect(() => {
-    // Pick up a token carried in the URL hash (e.g. after login navigation
-    // from the footer modal when all storage is blocked).
-    consumeHashToken();
     const token = getOpsToken();
     fetch("/api/admin/session", {
       credentials: "include",

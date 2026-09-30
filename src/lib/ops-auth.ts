@@ -6,8 +6,7 @@ import { jwtVerify, SignJWT } from "jose";
  * - Stateless JWT delivered BOTH as an obfuscated httpOnly cookie AND as a
  *   JSON token the client mirrors to localStorage.
  * - Dual transport: every guard accepts `Authorization: Bearer <token>` first,
- *   cookie second. This keeps login working inside cross-site preview iframes
- *   (e.g. Arena battle view), where browsers block SameSite=Lax cookies.
+ *   cookie second, so both same-origin fetches and direct API clients work.
  * - True inactivity expiry: token carries `seen`; requests older than
  *   INACTIVITY_MS are rejected. Each valid request re-issues with fresh `seen`.
  */
@@ -17,9 +16,26 @@ const ABS_TTL_SECONDS = 12 * 3600; // absolute session cap
 const INACTIVITY_MS = 30 * 60 * 1000; // auto-expire after 30 min idle
 const PASSKEY = process.env.ADMIN_PASSKEY || "5309";
 
+const DEV_SECRET = "palawan-collective-dev-secret-change-me";
+const PLACEHOLDERS = new Set([DEV_SECRET, "change-me-to-a-long-random-string", ""]);
+
+/**
+ * Session signing key.
+ * Fails CLOSED: in production a missing/placeholder secret throws, which every
+ * guard treats as "unauthorized" — the console locks rather than opening up.
+ * Dev keeps a fixed throwaway so `npm run dev` works with no .env.
+ */
 function secret(): Uint8Array {
-  const s = process.env.ADMIN_JWT_SECRET || "palawan-collective-dev-secret-change-me";
-  return new TextEncoder().encode(s);
+  const configured = process.env.ADMIN_JWT_SECRET?.trim() ?? "";
+  if (PLACEHOLDERS.has(configured)) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "ADMIN_JWT_SECRET is missing or still a placeholder. Set a long random value before running in production.",
+      );
+    }
+    return new TextEncoder().encode(DEV_SECRET);
+  }
+  return new TextEncoder().encode(configured);
 }
 
 export function opsCookieName(): string {
@@ -62,20 +78,15 @@ export async function verifyOpsToken(token: string | undefined | null): Promise<
 }
 
 export function opsCookieHeader(token: string): string {
-  // Production previews are HTTPS and often embedded cross-site (Arena iframe),
-  // where SameSite=Lax cookies are blocked. SameSite=None + Secure + Partitioned
-  // (CHIPS) keeps the cookie working there. Dev stays Lax (plain HTTP).
-  if (process.env.NODE_ENV === "production") {
-    return `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=None; Secure; Partitioned; Max-Age=${ABS_TTL_SECONDS}`;
-  }
-  return `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${ABS_TTL_SECONDS}`;
+  // Same-origin, httpOnly, Lax. The console is never embedded cross-site, so
+  // there is no reason to widen the cookie to SameSite=None.
+  const base = `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${ABS_TTL_SECONDS}`;
+  return process.env.NODE_ENV === "production" ? `${base}; Secure` : base;
 }
 
 export function clearOpsCookieHeader(): string {
-  if (process.env.NODE_ENV === "production") {
-    return `${COOKIE}=; Path=/; HttpOnly; SameSite=None; Secure; Partitioned; Max-Age=0`;
-  }
-  return `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+  const base = `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+  return process.env.NODE_ENV === "production" ? `${base}; Secure` : base;
 }
 
 export function readOpsCookie(request: Request): string | null {
@@ -96,7 +107,7 @@ export function readBearerToken(request: Request): string | null {
   return token ? token : null;
 }
 
-/** Bearer header first (iframe-proof), cookie second. */
+/** Bearer header first, cookie second. */
 export function readOpsToken(request: Request): string | null {
   return readBearerToken(request) ?? readOpsCookie(request);
 }
@@ -113,8 +124,7 @@ export async function requireOps(request: Request): Promise<{ res: Response | nu
 export function withOpsRefresh(res: Response, refresh: string | null): Response {
   if (refresh) {
     res.headers.append("Set-Cookie", opsCookieHeader(refresh));
-    // Bearer twin of the cookie refresh — readable by same-origin fetch even
-    // when the browser blocks Set-Cookie in cross-site iframes.
+    // Bearer twin of the cookie refresh, for same-origin fetch clients.
     res.headers.set("X-Ops-Token", refresh);
   }
   return res;

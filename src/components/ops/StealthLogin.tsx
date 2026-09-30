@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion, useAnimationControls } from "framer-motion";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { adminUrlWithToken, getOpsToken, setOpsToken } from "@/lib/admin-store";
+import { getOpsToken, setOpsToken } from "@/lib/admin-store";
 
 /**
  * Stealth entry: triple-click the element marked [data-ops-trigger]
@@ -27,7 +27,7 @@ export function StealthLogin() {
       const data = (await res.json().catch(() => ({}))) as { authed?: boolean; token?: string };
       if (data.authed) {
         if (data.token) setOpsToken(data.token);
-        window.location.assign(adminUrlWithToken());
+        window.location.assign("/admin");
         return;
       }
       setOpsToken(null);
@@ -95,7 +95,7 @@ export function StealthLogin() {
     }
     setBusy(false);
     if (ok) {
-      window.location.assign(adminUrlWithToken());
+      window.location.assign("/admin");
     } else {
       void fail();
     }
