@@ -198,9 +198,24 @@ const FAQ_SEEDS = [
 
 const g = globalThis as typeof globalThis & { __pcControlSeed?: Promise<void> | null };
 
+/**
+ * Once-per-database seed guard — see the note on CONTENT_SEED_KEY in data.ts.
+ * Without it the per-key "insert if missing" checks below re-create any section,
+ * setting, social link, partner or FAQ an operator deleted, on every cold start,
+ * and re-run the one-time section migrations.
+ */
+const CONTROL_SEED_KEY = "seed:control";
+
 function ensureControlSeeded(): Promise<void> {
   if (!g.__pcControlSeed) {
     g.__pcControlSeed = (async () => {
+      const claimed = await db
+        .insert(siteSettings)
+        .values({ key: CONTROL_SEED_KEY, value: { seededAt: new Date().toISOString() } })
+        .onConflictDoNothing({ target: siteSettings.key })
+        .returning({ key: siteSettings.key });
+      if (claimed.length === 0) return;
+
       const existingSettings = await db.select({ key: siteSettings.key }).from(siteSettings);
       const have = new Set(existingSettings.map((r) => r.key));
       for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
@@ -339,7 +354,12 @@ export async function getSettingsMap(): Promise<Record<string, unknown>> {
   await ensureControlSeeded();
   const rows = await db.select().from(siteSettings);
   const map: Record<string, unknown> = { ...DEFAULT_SETTINGS };
-  for (const row of rows) map[row.key] = row.value;
+  for (const row of rows) {
+    // Internal bookkeeping keys (e.g. `seed:content`) use a `:` and are never
+    // exposed — they are not operator-editable and must not reach /api/public/site.
+    if (!/^[a-z0-9_]{1,60}$/.test(row.key)) continue;
+    map[row.key] = row.value;
+  }
   return map;
 }
 

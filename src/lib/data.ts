@@ -1,6 +1,6 @@
 import { asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { builds, fieldLog, guides, stories } from "@/db/schema";
+import { builds, fieldLog, guides, siteSettings, stories } from "@/db/schema";
 import type { Build, FieldLogEntry, Guide, Story } from "@/db/schema";
 import { storySeeds } from "@/content/stories";
 import { buildSeeds, guideSeeds, logSeeds } from "@/content/ecosystem";
@@ -51,10 +51,30 @@ function withoutId<T extends { id: number }>(rows: T[]): Omit<T, "id">[] {
 
 const globalForSeed = globalThis as typeof globalThis & { __palawanSeed?: Promise<void> | null };
 
+/**
+ * Once-per-database seed guard.
+ *
+ * The inserts below are `onConflictDoNothing`, which never clobbers an
+ * operator's edits — but they also cannot tell "never seeded" apart from
+ * "deleted on purpose", so they re-insert whatever the operator removed every
+ * time a fresh server process starts (i.e. on every cold start). One row in
+ * `site_settings` records that this database has been seeded; the primary key
+ * makes the claim atomic, so two cold starts racing cannot both seed. Keys
+ * outside `[a-z0-9_]` are internal and are filtered out of the settings map.
+ */
+const CONTENT_SEED_KEY = "seed:content";
+
 function ensureSeeded(): Promise<void> {
   let pending = globalForSeed.__palawanSeed;
   if (!pending) {
     pending = (async () => {
+      const claimed = await db
+        .insert(siteSettings)
+        .values({ key: CONTENT_SEED_KEY, value: { seededAt: new Date().toISOString() } })
+        .onConflictDoNothing({ target: siteSettings.key })
+        .returning({ key: siteSettings.key });
+      if (claimed.length === 0) return;
+
       const { storyRows, buildRows, guideRows, logRows } = seedData();
       await db.insert(stories).values(withoutId(storyRows)).onConflictDoNothing({ target: stories.slug });
       await db.insert(builds).values(withoutId(buildRows)).onConflictDoNothing({ target: builds.slug });
