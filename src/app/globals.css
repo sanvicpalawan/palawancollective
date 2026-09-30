@@ -258,6 +258,15 @@
   animation-play-state: paused;
 }
 
+/* Partner logo marquee (PartnersGrid) — track holds two identical copies,
+   so a -50% shift loops seamlessly. Direction is flipped with `reverse`. */
+@keyframes pc-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+
 /* ------------------------------------------------------------------ */
 /* Editorial details                                                    */
 /* ------------------------------------------------------------------ */
