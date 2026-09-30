@@ -1,7 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowUpRight } from "@/components/ui";
 import { opsFetch, opsJson, useOpsStore } from "@/lib/admin-store";
+import { pad2 } from "@/lib/format";
+import { partnerLink } from "@/lib/partner-link";
 import { Btn, Empty, F, Inp, Panel, Tog } from "./console";
 
 type PartnerRow = {
@@ -106,19 +109,20 @@ export function PartnersPanel() {
   }
 
   const sorted = [...rows].sort((a, b) => a.position - b.position);
+  const live = sorted.filter((r) => r.visible);
 
   if (loading) return <Empty text="Loading partners…" />;
 
   return (
     <div className="grid gap-5 xl:grid-cols-[1fr_24rem]">
-      <Panel title="Partners" sub="Shown in the “Our Partners” section · order left → right">
+      <Panel title="Partners" sub="Shown in the “Our Partners” section · order left → right, then the next row">
         <div className="space-y-2">
           {sorted.map((r, i) => (
             <div key={r.id} className="border border-white/10 bg-white/[0.02] p-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-16 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#f8f4ed] p-2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={r.logo} alt={r.name} className="h-full w-full object-contain" />
+                  <img src={r.logo} alt={r.name} className="h-full w-full object-contain mix-blend-multiply" />
                 </div>
                 <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
                   <Inp
@@ -153,8 +157,10 @@ export function PartnersPanel() {
           {sorted.length === 0 && <Empty text="No partners yet — add the first one on the right." />}
         </div>
         <p className="mt-4 font-mono text-[11px] leading-relaxed text-stone-500">
-          Logos sit on the site’s beige card in their own colors — upload transparent SVG or PNG for the cleanest
-          result. A blank website field shows the logo without a link.
+          On the home page each partner is a card: visitors hover it (desktop) or tap it (any device) to raise it and
+          reveal a “Visit site” button. Logos sit on the site’s paper card in their own colors — transparent SVG or PNG
+          gives the cleanest result, and white backgrounds blend in. Leave the website blank and the card reads “Site
+          coming soon” until you add one.
         </p>
       </Panel>
 
@@ -199,22 +205,48 @@ export function PartnersPanel() {
           </div>
         </Panel>
 
-        <Panel title="Live wall" sub="Exactly what the home page shows">
-          <div className="grid grid-cols-2 gap-3">
-            {sorted.filter((r) => r.visible).map((r) => (
-              <div
-                key={r.id}
-                className="flex aspect-[16/10] items-center justify-center rounded-[var(--pc-radius,18px)] border border-ink/10 bg-[#f8f4ed] p-4"
-                title={r.name}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={r.logo} alt={r.name} className="h-full w-full object-contain" />
-              </div>
-            ))}
-            {sorted.filter((r) => r.visible).length === 0 && (
-              <span className="col-span-2 font-mono text-[12px] text-stone-500">Nothing visible right now.</span>
+        <Panel title="Live wall" sub="Each card as it rests on the home page">
+          <ul role="list" className="grid grid-cols-2 gap-3">
+            {live.map((r, i) => {
+              const link = partnerLink(r.url);
+              return (
+                <li
+                  key={r.id}
+                  className="overflow-hidden rounded-[var(--pc-radius,18px)] border border-ink/10 bg-paper"
+                  title={r.name}
+                >
+                  <span className="block px-3 pt-2.5 font-mono text-[9px] tracking-[0.16em] text-clay-deep">
+                    {pad2(i + 1)}
+                  </span>
+                  <div className="flex h-14 items-center justify-center px-3 mix-blend-multiply">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={r.logo} alt="" className="h-full w-full object-contain" />
+                  </div>
+                  <div className="flex items-center justify-between gap-2 border-t border-ink/10 px-3 py-2">
+                    <span className="min-w-0 truncate text-[11px] font-medium text-ink-2">{r.name}</span>
+                    {link ? (
+                      <span className="shrink-0 text-clay-deep" title="Has a visit link">
+                        <ArrowUpRight className="h-3 w-3" />
+                      </span>
+                    ) : (
+                      <span className="shrink-0 font-mono text-[8.5px] uppercase tracking-[0.1em] text-ink-2/60">
+                        Soon
+                      </span>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+            {live.length === 0 && (
+              <li className="col-span-2 font-mono text-[12px] text-stone-500">Nothing visible right now.</li>
             )}
-          </div>
+          </ul>
+          {live.length > 0 && (
+            <p className="mt-3 font-mono text-[10.5px] leading-relaxed text-stone-500">
+              <ArrowUpRight className="-mt-0.5 inline h-3 w-3 text-clay-deep" /> has a visit link · “Soon” shows “Site
+              coming soon” until a website is added.
+            </p>
+          )}
         </Panel>
       </div>
     </div>
