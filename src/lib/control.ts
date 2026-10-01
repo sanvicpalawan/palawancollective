@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   agents,
@@ -344,34 +344,35 @@ const g = globalThis as typeof globalThis & {
  * Once-per-database seed guard — see the note on CONTENT_SEED_KEY in data.ts.
  * Without it the per-key "insert if missing" checks below re-create any section,
  * setting, social link, partner or FAQ an operator deleted, on every cold start,
- * and re-run the one-time section migrations.
+ * and re-run the one-time section migrations. The claim and all inserts run
+ * in one transaction, so a failed seed cannot leave a premature success flag.
  */
 const CONTROL_SEED_KEY = "seed:control";
 
 function ensureControlSeeded(): Promise<void> {
   if (!g.__pcControlSeed) {
-    g.__pcControlSeed = (async () => {
-      const claimed = await db
+    g.__pcControlSeed = db.transaction(async (tx) => {
+      const claimed = await tx
         .insert(siteSettings)
         .values({ key: CONTROL_SEED_KEY, value: { seededAt: new Date().toISOString() } })
         .onConflictDoNothing({ target: siteSettings.key })
         .returning({ key: siteSettings.key });
       if (claimed.length === 0) return;
 
-      const existingSettings = await db.select({ key: siteSettings.key }).from(siteSettings);
+      const existingSettings = await tx.select({ key: siteSettings.key }).from(siteSettings);
       const have = new Set(existingSettings.map((r) => r.key));
       for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
-        if (!have.has(key)) await db.insert(siteSettings).values({ key, value }).onConflictDoNothing();
+        if (!have.has(key)) await tx.insert(siteSettings).values({ key, value }).onConflictDoNothing();
       }
-      const design = await db.select({ id: designTokens.id }).from(designTokens).limit(1);
-      if (design.length === 0) await db.insert(designTokens).values({ tokens: DEFAULT_DESIGN });
-      const sections = await db.select({ key: siteSections.key, position: siteSections.position }).from(siteSections);
+      const design = await tx.select({ id: designTokens.id }).from(designTokens).limit(1);
+      if (design.length === 0) await tx.insert(designTokens).values({ tokens: DEFAULT_DESIGN });
+      const sections = await tx.select({ key: siteSections.key, position: siteSections.position }).from(siteSections);
       // One-time: DBs seeded before the Systems block existed need the tail
       // (position >= 6) pushed down a slot so Systems lands at 6 without
       // colliding with Work With Us. Fresh DBs have no rows to shift.
       if (sections.length > 0 && !sections.some((s) => s.key === "systems")) {
         for (const s of sections.filter((x) => x.position >= 6)) {
-          await db
+          await tx
             .update(siteSections)
             .set({ position: s.position + 1, updatedAt: new Date() })
             .where(eq(siteSections.key, s.key));
@@ -380,7 +381,7 @@ function ensureControlSeeded(): Promise<void> {
       const haveSections = new Set(sections.map((r) => r.key));
       for (const s of SECTION_SEEDS) {
         if (!haveSections.has(s.key)) {
-          await db.insert(siteSections).values({
+          await tx.insert(siteSections).values({
             page: "home",
             key: s.key,
             type: s.type,
@@ -392,44 +393,38 @@ function ensureControlSeeded(): Promise<void> {
           });
         }
       }
-      const nav = await db.select({ id: navItems.id }).from(navItems).limit(1);
+      const nav = await tx.select({ id: navItems.id }).from(navItems).limit(1);
       if (nav.length === 0) {
-        for (const n of NAV_SEEDS) await db.insert(navItems).values({ ...n, visible: true });
+        for (const n of NAV_SEEDS) await tx.insert(navItems).values({ ...n, visible: true });
       }
-      const soc = await db.select({ platform: socialLinks.platform }).from(socialLinks);
+      const soc = await tx.select({ platform: socialLinks.platform }).from(socialLinks);
       const haveSocial = new Set(soc.map((r) => r.platform));
       for (const s of SOCIAL_SEEDS) {
         if (!haveSocial.has(s.platform)) {
-          await db.insert(socialLinks).values(s).onConflictDoNothing();
+          await tx.insert(socialLinks).values(s).onConflictDoNothing();
         }
       }
-      const pCount = await db.select({ id: partners.id }).from(partners).limit(1);
+      const pCount = await tx.select({ id: partners.id }).from(partners).limit(1);
       if (pCount.length === 0) {
-        for (const p of PARTNER_SEEDS) await db.insert(partners).values(p);
-      }
-      // Dream Team roster — a fresh database gets it with everything else.
-      // Databases created before this feature are handled by ensureTeamSeeded().
-      const tCount = await db.select({ id: teamMembers.id }).from(teamMembers).limit(1);
-      if (tCount.length === 0) {
-        for (const m of TEAM_SEEDS) await db.insert(teamMembers).values({ ...m, visible: true });
+        for (const p of PARTNER_SEEDS) await tx.insert(partners).values(p);
       }
       // One-time migration: older sandboxes shipped a "systems" section here.
       // Replace it with the "Our Partners" section on the home page.
-      const hasPartners = await db.select({ id: siteSections.id }).from(siteSections).where(eq(siteSections.key, "partners")).limit(1);
-      const hasSystems = await db.select().from(siteSections).where(eq(siteSections.key, "systems")).limit(1);
+      const hasPartners = await tx.select({ id: siteSections.id }).from(siteSections).where(eq(siteSections.key, "partners")).limit(1);
+      const hasSystems = await tx.select().from(siteSections).where(eq(siteSections.key, "systems")).limit(1);
       if (hasSystems.length > 0 && hasPartners.length === 0) {
-        await db
+        await tx
           .update(siteSections)
           .set({ key: "partners", type: "partners", title: "Our Partners", position: 6, data: { index: "05" }, updatedAt: new Date() })
           .where(eq(siteSections.key, "systems"));
       }
-      const fq = await db.select({ id: faqs.id }).from(faqs).limit(1);
+      const fq = await tx.select({ id: faqs.id }).from(faqs).limit(1);
       if (fq.length === 0) {
-        for (const f of FAQ_SEEDS) await db.insert(faqs).values({ ...f, visible: true });
+        for (const f of FAQ_SEEDS) await tx.insert(faqs).values({ ...f, visible: true });
       }
-      const gal = await db.select({ id: galleries.id }).from(galleries).limit(1);
+      const gal = await tx.select({ id: galleries.id }).from(galleries).limit(1);
       if (gal.length === 0) {
-        await db.insert(galleries).values({
+        await tx.insert(galleries).values({
           slug: "site-01-build-diary",
           title: "Site 01 — Build Diary",
           description: "Roof framing, solar runs, boat logistics and the crew. Updated as we build.",
@@ -446,9 +441,9 @@ function ensureControlSeeded(): Promise<void> {
           visible: true,
         });
       }
-      const ag = await db.select({ id: agents.id }).from(agents).limit(1);
+      const ag = await tx.select({ id: agents.id }).from(agents).limit(1);
       if (ag.length === 0) {
-        await db.insert(agents).values({
+        await tx.insert(agents).values({
           name: "Palawan Operator",
           role: "Customer Assistant",
           systemPrompt: `${DEFAULT_AGENT_PROMPT}\n\nVoice: short, plain, operational. No hype. If you don't know something, say so and suggest messaging on WhatsApp.`,
@@ -460,7 +455,7 @@ function ensureControlSeeded(): Promise<void> {
           status: "active",
           isDefault: true,
         });
-        await db.insert(agents).values({
+        await tx.insert(agents).values({
           name: "Field Writer",
           role: "Content Writer",
           systemPrompt: `${DEFAULT_AGENT_PROMPT}\n\nYou draft dispatches in the field-journal voice: raw, operational, specific. Short paragraphs. Always include what broke and what changed.`,
@@ -473,9 +468,9 @@ function ensureControlSeeded(): Promise<void> {
           isDefault: false,
         });
       }
-      const mc = await db.select({ id: modelConfig.id }).from(modelConfig).limit(1);
+      const mc = await tx.select({ id: modelConfig.id }).from(modelConfig).limit(1);
       if (mc.length === 0) {
-        await db.insert(modelConfig).values({
+        await tx.insert(modelConfig).values({
           provider: "openrouter",
           openrouterKey: process.env.OPENROUTER_API_KEY || "",
           showFree: true,
@@ -486,7 +481,7 @@ function ensureControlSeeded(): Promise<void> {
           modelsCache: [],
         });
       }
-    })().catch((error: unknown) => {
+    }).catch((error: unknown) => {
       g.__pcControlSeed = null;
       throw error;
     });
@@ -495,64 +490,99 @@ function ensureControlSeeded(): Promise<void> {
 }
 
 /**
- * Dream Team: one-time add for databases that were seeded before this feature
- * existed, so the roster and its home-page block show up on the first request
- * after a deploy without any manual SQL.
+ * Dream Team: one-time add for databases seeded before this feature existed.
+ * The schema, roster, section shifts and bookkeeping commit together. Failed
+ * attempts roll back and can be retried; completed seeds never resurrect rows
+ * an operator deliberately removed.
  *
- * It claims its own bookkeeping row (same trick as CONTROL_SEED_KEY), so it
- * runs exactly once per database — deleting the team or hiding the section is
- * never undone by a later cold start. Fresh databases already carry both from
- * `ensureControlSeeded`, where the existence checks below simply no-op.
+ * Only a missing team_members table is repaired here. All other schema changes
+ * still belong to `npm run db:push`. The database role needs CREATE permission
+ * on the current schema for this targeted repair.
  */
 const TEAM_SEED_KEY = "seed:team";
 
-function ensureTeamSeeded(): Promise<void> {
+export function ensureTeamSeeded(): Promise<void> {
   if (!g.__pcTeamSeed) {
     g.__pcTeamSeed = (async () => {
-      const claimed = await db
-        .insert(siteSettings)
-        .values({ key: TEAM_SEED_KEY, value: { seededAt: new Date().toISOString() } })
-        .onConflictDoNothing({ target: siteSettings.key })
-        .returning({ key: siteSettings.key });
-      if (claimed.length === 0) return;
-
-      const members = await db.select({ id: teamMembers.id }).from(teamMembers).limit(1);
-      if (members.length === 0) {
-        for (const m of TEAM_SEEDS) await db.insert(teamMembers).values({ ...m, visible: true });
-      }
-
-      const hasTeam = await db.select({ id: siteSections.id }).from(siteSections).where(eq(siteSections.key, "team")).limit(1);
-      if (hasTeam.length === 0) {
-        const home = await db.select().from(siteSections).where(eq(siteSections.page, "home"));
-        // Slot the block straight after the hero: everything from position 1
-        // down moves one place, then the team takes position 1.
-        for (const s of home.filter((x) => x.position >= 1)) {
-          await db
-            .update(siteSections)
-            .set({ position: s.position + 1, updatedAt: new Date() })
-            .where(eq(siteSections.id, s.id));
+      await ensureControlSeeded();
+      await db.transaction(async (tx) => {
+        // Concurrent serverless cold starts must not race CREATE TABLE (even
+        // IF NOT EXISTS can race on Postgres' internal type/sequence records).
+        // An xact-scoped lock is also safe with Neon's transaction pooler.
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext('palawan-collective:seed:team'))`);
+        const { rows } = await tx.execute<{ relation: string | null }>(
+          sql`select to_regclass('team_members')::text as relation`,
+        );
+        if (rows[0]?.relation === null) {
+          // Keep this definition in sync with src/db/schema.ts and the initial
+          // SQL. Never alter an existing table or overwrite existing members.
+          await tx.execute(sql`
+            create table if not exists "team_members" (
+              "id" serial primary key not null,
+              "name" text not null,
+              "role" text default '' not null,
+              "location" text default '' not null,
+              "photo" text default '' not null,
+              "photo_alt" text default '' not null,
+              "bio" text default '' not null,
+              "url" text default '' not null,
+              "position" integer default 0 not null,
+              "visible" boolean default true not null,
+              "created_at" timestamp with time zone default now() not null,
+              "updated_at" timestamp with time zone default now() not null
+            )
+          `);
+          // The previous implementation could claim seed:team and then fail
+          // on the absent table. Its stale claim must not block this repair.
+          // Only reset it when the table was missing, not for an empty roster.
+          await tx.delete(siteSettings).where(eq(siteSettings.key, TEAM_SEED_KEY));
         }
-        for (const s of home) {
-          const shift = HOME_INDEX_SHIFT[s.key];
-          const current = typeof s.data?.index === "string" ? s.data.index : "";
-          if (shift && current === shift.from) {
-            await db
+
+        const claimed = await tx
+          .insert(siteSettings)
+          .values({ key: TEAM_SEED_KEY, value: { seededAt: new Date().toISOString() } })
+          .onConflictDoNothing({ target: siteSettings.key })
+          .returning({ key: siteSettings.key });
+        if (claimed.length === 0) return;
+
+        const members = await tx.select({ id: teamMembers.id }).from(teamMembers).limit(1);
+        if (members.length === 0) {
+          for (const m of TEAM_SEEDS) await tx.insert(teamMembers).values({ ...m, visible: true });
+        }
+
+        const hasTeam = await tx.select({ id: siteSections.id }).from(siteSections).where(eq(siteSections.key, "team")).limit(1);
+        if (hasTeam.length === 0) {
+          const home = await tx.select().from(siteSections).where(eq(siteSections.page, "home"));
+          // Slot the block straight after the hero: everything from position 1
+          // down moves one place, then the team takes position 1.
+          for (const s of home.filter((x) => x.position >= 1)) {
+            await tx
               .update(siteSections)
-              .set({ data: { ...s.data, index: shift.to }, updatedAt: new Date() })
+              .set({ position: s.position + 1, updatedAt: new Date() })
               .where(eq(siteSections.id, s.id));
           }
+          for (const s of home) {
+            const shift = HOME_INDEX_SHIFT[s.key];
+            const current = typeof s.data?.index === "string" ? s.data.index : "";
+            if (shift && current === shift.from) {
+              await tx
+                .update(siteSections)
+                .set({ data: { ...s.data, index: shift.to }, updatedAt: new Date() })
+                .where(eq(siteSections.id, s.id));
+            }
+          }
+          await tx.insert(siteSections).values({
+            page: "home",
+            key: TEAM_SECTION.key,
+            type: TEAM_SECTION.type,
+            title: TEAM_SECTION.title,
+            position: TEAM_SECTION.position,
+            visible: true,
+            status: "published",
+            data: TEAM_SECTION.data,
+          });
         }
-        await db.insert(siteSections).values({
-          page: "home",
-          key: TEAM_SECTION.key,
-          type: TEAM_SECTION.type,
-          title: TEAM_SECTION.title,
-          position: TEAM_SECTION.position,
-          visible: true,
-          status: "published",
-          data: TEAM_SECTION.data,
-        });
-      }
+      });
     })().catch((error: unknown) => {
       g.__pcTeamSeed = null;
       throw error;

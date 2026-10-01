@@ -170,7 +170,15 @@ name · role · location · photo · photo_alt · bio · url · position · visi
 - **Existing databases adopt it automatically.** The roster and its section row
   are added by a one-time claim (`seed:team` in `site_settings`) on the first
   request after deploy, and positions/`§` labels shift to make room after the
-  hero. Deleting members or the block is never undone by a later cold start.
+  hero. The claim, roster and section changes commit together; a failure rolls
+  back and can be retried. Deleting members or the block is never undone by a
+  later cold start.
+- **Missing `team_members` table?** Initialization creates only that table when
+  it is absent (the database role needs `CREATE` on the schema), including
+  recovery from a stale `seed:team` claim left by an earlier failed attempt.
+  Concurrent cold starts are serialized with a transaction-scoped lock. This
+  is not a general migration runner: `npm run db:push` remains the canonical
+  schema sync. See [upgrading an existing deployment](./DEPLOY.md#upgrading-an-existing-dream-team-deployment).
 - **No database?** The home page still renders the bundled roster, the same
   fallback rule `lib/data.ts` uses for stories and builds.
 
@@ -272,6 +280,21 @@ new uploads are stored in Postgres in the `uploaded_files` table.
 | `npm run db:setup` | Create + verify the schema (safe to re-run; friendly output) |
 | `npm run db:push` | Sync `src/db/schema.ts` to the database (`drizzle-kit push --force`) |
 | `npm run db:generate` | Write a versioned SQL migration into `drizzle/` |
+| `npm run test:db` | Dream Team database regression tests (requires `TEST_DATABASE_URL`) |
+
+### Database regression tests
+
+Use a **disposable/local PostgreSQL database**, not the production Neon branch:
+
+```sh
+TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/pc_test npm run test:db
+```
+
+The runner requires an explicit `TEST_DATABASE_URL` (it does not fall back to
+`DATABASE_URL` or `.env`) and creates/removes a unique `pc_team_test_*` schema.
+The test role needs permission to create schemas. Tests exercise missing-table
+repair, stale claims, transaction rollback/retry, concurrent independent cold
+starts, preservation of operator edits/deletions, and authenticated team CRUD.
 
 ## Deploy
 
