@@ -13,10 +13,11 @@ type Section = {
   position: number; visible: boolean; status: string; data: Record<string, unknown>;
 };
 
-const SECTION_TYPES = ["hero", "text_image", "story_blocks", "gallery", "grid", "cta", "newsletter", "faq", "custom"];
+const SECTION_TYPES = ["hero", "team", "text_image", "story_blocks", "gallery", "grid", "cta", "newsletter", "faq", "custom"];
 
 const DATA_HINTS: Record<string, string> = {
   hero: "index · eyebrow",
+  team: "index · first · second · description · href · linkLabel",
   text_image: "kicker · title · body (blank line = new paragraph) · image · imageAlt · flip (true) · ctaHref · ctaLabel",
   story_blocks: "index · first · note",
   gallery: "gallerySlug · index",

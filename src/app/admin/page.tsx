@@ -9,6 +9,7 @@ import { DesignPanel, MediaPanel, SettingsPanel } from "@/components/ops/panels-
 import { AgentsPanel, ModelsPanel } from "@/components/ops/panels-agents";
 import { SocialPanel } from "@/components/ops/panels-social";
 import { PartnersPanel } from "@/components/ops/panels-partners";
+import { DreamTeamPanel } from "@/components/ops/panels-team";
 import { LogoPanel } from "@/components/ops/panels-logo";
 import { ImagesPanel } from "@/components/ops/panels-images";
 import { BuiltPanel, PalawanPanel, StoriesPanel } from "@/components/ops/panels-entries";
@@ -173,6 +174,8 @@ export default function AdminPage() {
             return <LogoPanel />;
           case "partners":
             return <PartnersPanel />;
+          case "team":
+            return <DreamTeamPanel />;
           case "settings":
             return (
               <>

@@ -227,6 +227,21 @@ CREATE TABLE "subscribers" (
 	CONSTRAINT "subscribers_email_unique" UNIQUE("email")
 );
 --> statement-breakpoint
+CREATE TABLE "team_members" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"name" text NOT NULL,
+	"role" text DEFAULT '' NOT NULL,
+	"location" text DEFAULT '' NOT NULL,
+	"photo" text DEFAULT '' NOT NULL,
+	"photo_alt" text DEFAULT '' NOT NULL,
+	"bio" text DEFAULT '' NOT NULL,
+	"url" text DEFAULT '' NOT NULL,
+	"position" integer DEFAULT 0 NOT NULL,
+	"visible" boolean DEFAULT true NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "uploaded_files" (
 	"name" text PRIMARY KEY NOT NULL,
 	"mime" text NOT NULL,

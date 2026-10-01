@@ -12,6 +12,7 @@ import {
   siteSections,
   siteSettings,
   socialLinks,
+  teamMembers,
 } from "@/db/schema";
 import type {
   Agent,
@@ -27,6 +28,7 @@ import type {
   SectionData,
   SiteSection,
   SocialLink,
+  TeamMember,
 } from "@/db/schema";
 import { mediaAssets } from "@/db/schema";
 import { services as DEFAULT_SERVICES, systems as DEFAULT_SYSTEMS } from "./site";
@@ -116,18 +118,38 @@ export const DEFAULT_AGENT_PROMPT =
 
 type SectionSeed = { key: string; type: string; title: string; position: number; data: SectionData };
 
+/**
+ * Home-page block order. Position 1 is the Dream Team, directly under the hero.
+ * `data.index` is the printed "§ 0n" label — keep those sequential, because the
+ * Content Builder lets ops re-order blocks without touching the numbering.
+ */
+const TEAM_SECTION: SectionSeed = {
+  key: "team",
+  type: "team",
+  title: "Dream Team",
+  position: 1,
+  data: {
+    index: "01",
+    first: "The",
+    second: "Dream Team",
+    description:
+      "The people who build this ecosystem with us — architects, boat crews, chefs and resort owners, all on the ground in Palawan.",
+  },
+};
+
 const SECTION_SEEDS: SectionSeed[] = [
   { key: "hero", type: "hero", title: "Hero", position: 0, data: { index: "00", eyebrow: "PALAWAN COLLECTIVE" } },
-  { key: "status", type: "custom", title: "Status strip", position: 1, data: { note: "Live field-station readout" } },
-  { key: "built", type: "grid", title: "Built Environments", position: 2, data: { index: "01", first: "Built", second: "Environments", description: "Not client work — proof of execution. Places and systems we’ve built, run, and had to fix." } },
-  { key: "stories", type: "story-blocks", title: "Stories", position: 3, data: { index: "02", first: "Stories", note: "Not a blog." } },
-  { key: "fieldnotes", type: "newsletter", title: "Field Notes", position: 4, data: { index: "03" } },
-  { key: "partners", type: "partners", title: "Our Partners", position: 5, data: { index: "04" } },
-  { key: "systems", type: "grid", title: "Systems We Build", position: 6, data: { index: "05", first: "Systems", second: "We Build" } },
-  { key: "work", type: "cta", title: "Work With Us", position: 7, data: { index: "06", first: "Work", second: "With Us" } },
-  { key: "faq", type: "faq", title: "FAQ", position: 8, data: { index: "07", first: "Questions", second: "Answered" } },
-  { key: "gallery", type: "gallery", title: "Field Gallery", position: 9, data: { index: "08", gallerySlug: "site-01-build-diary" } },
-  { key: "palawan", type: "grid", title: "Navigating Palawan", position: 10, data: { index: "09", first: "Navigating", second: "Palawan" } },
+  TEAM_SECTION,
+  { key: "status", type: "custom", title: "Status strip", position: 2, data: { note: "Live field-station readout" } },
+  { key: "built", type: "grid", title: "Built Environments", position: 3, data: { index: "02", first: "Built", second: "Environments", description: "Not client work — proof of execution. Places and systems we’ve built, run, and had to fix." } },
+  { key: "stories", type: "story-blocks", title: "Stories", position: 4, data: { index: "03", first: "Stories", note: "Not a blog." } },
+  { key: "fieldnotes", type: "newsletter", title: "Field Notes", position: 5, data: { index: "04" } },
+  { key: "partners", type: "partners", title: "Our Partners", position: 6, data: { index: "05" } },
+  { key: "systems", type: "grid", title: "Systems We Build", position: 7, data: { index: "06", first: "Systems", second: "We Build" } },
+  { key: "work", type: "cta", title: "Work With Us", position: 8, data: { index: "07", first: "Work", second: "With Us" } },
+  { key: "faq", type: "faq", title: "FAQ", position: 9, data: { index: "08", first: "Questions", second: "Answered" } },
+  { key: "gallery", type: "gallery", title: "Field Gallery", position: 10, data: { index: "09", gallerySlug: "site-01-build-diary" } },
+  { key: "palawan", type: "grid", title: "Navigating Palawan", position: 11, data: { index: "10", first: "Navigating", second: "Palawan" } },
 ];
 
 const NAV_SEEDS = [
@@ -158,6 +180,123 @@ const PARTNER_SEEDS: Array<{ name: string; logo: string; url: string; position: 
   { name: "Azarraga Glass & Aluminum", logo: "/images/partners/azarraga.svg", url: "https://azarragaglass.com", position: 3, visible: true },
   { name: "Kapwa Hospitality Group", logo: "/images/partners/kapwa.svg", url: "", position: 4, visible: true },
 ];
+
+/* ------------------------------------------------------------------ */
+/* Dream Team                                                          */
+/* ------------------------------------------------------------------ */
+
+export type TeamSeed = Pick<TeamMember, "name" | "role" | "location" | "photo" | "photoAlt" | "bio" | "url" | "position">;
+
+/**
+ * The founding roster. Photos are expected in `public/images/team/` with the
+ * names below; ops can also upload replacements (those go to Postgres and are
+ * served from /uploads/, so they survive a redeploy). A missing file renders as
+ * an initials monogram rather than a broken image.
+ */
+const TEAM_SEEDS: TeamSeed[] = [
+  {
+    name: "David Le & Quennie Azarraga",
+    role: "Founders",
+    location: "Palawan Island & Global",
+    photo: "/images/team/1000057187.png",
+    photoAlt: "David Le and Quennie Azarraga at an outdoor table with their dog, under a thatched roof",
+    bio: "Founders of Kapwa Hospitality, sharing our proven formula, operational blueprint, and vision for meaningful hospitality with others across Palawan Island and globally.",
+    url: "",
+    position: 0,
+  },
+  {
+    name: "Clint Ponce de Leon",
+    role: "Certified Architect & Designer",
+    location: "Palawan Island & Global",
+    photo: "/images/team/1000057270_2.jpg",
+    photoAlt: "Portrait of Clint Ponce de Leon",
+    bio: "Specializing in commercial and residential architectural design rooted in sustainable, context-driven spaces across Palawan Island and international projects.",
+    url: "",
+    position: 1,
+  },
+  {
+    name: "Kyle Clark",
+    role: "Marine Logistics & Expedition Lead",
+    location: "Port Barton & San Vicente",
+    photo: "/images/team/1000057301.jpg",
+    photoAlt: "Portrait of Kyle Clark on the water",
+    bio: "Directs marine logistics for boats, managing a 400 HP speedboat seating up to 12 passengers. Specializes in supporting film and movie productions between November and July, while overseeing all deep-sea fishing expeditions along the west coast.",
+    url: "",
+    position: 2,
+  },
+  {
+    name: "Lawrence Woodleigh",
+    role: "Resort Island Owner & Developer",
+    location: "Palawan Island & Global",
+    photo: "/images/team/1000057304.jpg",
+    photoAlt: "Portrait of Lawrence Woodleigh",
+    bio: "Experienced resort island owner and developer based north of El Nido. Directs remote island resort operations and infrastructure developments across projects spanning the entire island.",
+    url: "",
+    position: 3,
+  },
+  {
+    name: "Alfie Lao",
+    role: "Culinary Lead & Expedition Specialist",
+    location: "Palawan Island",
+    photo: "/images/team/1000057306.jpg",
+    photoAlt: "Portrait of Alfie Lao",
+    bio: "Culinary lead who splits time between jungle mountaineering and environmental expeditions. Brings rare foraged inspirations and specialized menu implementations through exclusive food pop-ups a few times a month.",
+    url: "",
+    position: 4,
+  },
+  {
+    name: "James & Ina",
+    role: "Amuma Ecosystems Developers",
+    location: "San Vicente & Balabac",
+    photo: "/images/team/1000057302_2.jpg",
+    photoAlt: "Portrait of Ina, of James & Ina",
+    bio: "An extraordinary team pairing an Italian artist with a Filipino actress leading Amuma Ecosystems. Currently developing their 3rd resort across San Vicente and Balabac.",
+    url: "",
+    position: 5,
+  },
+  {
+    name: "Tonton Varquez",
+    role: "Hospitality Operations & Aerial Media",
+    location: "San Vicente",
+    photo: "/images/team/1000057299_2.jpg",
+    photoAlt: "Portrait of Tonton Varquez",
+    bio: "One of the original friends met in San Vicente. A great friend with strong hospitality expertise managing several getaways across the municipality. Fully drone-ready for aerial property capture.",
+    url: "",
+    position: 6,
+  },
+];
+
+/**
+ * Home sections on databases seeded before the Dream Team existed still carry
+ * the old “§ 0n” labels. Bump them to make room for the team at 01 — but only
+ * where the label is still the untouched default, so an operator's own
+ * numbering is never overwritten.
+ */
+const HOME_INDEX_SHIFT: Record<string, { from: string; to: string }> = {
+  built: { from: "01", to: "02" },
+  stories: { from: "02", to: "03" },
+  fieldnotes: { from: "03", to: "04" },
+  partners: { from: "04", to: "05" },
+  systems: { from: "05", to: "06" },
+  work: { from: "06", to: "07" },
+  faq: { from: "07", to: "08" },
+  gallery: { from: "08", to: "09" },
+  palawan: { from: "09", to: "10" },
+};
+
+/** Stand-in `createdAt` for seed rows rendered without a database. */
+const SEED_EPOCH = new Date("2024-01-01T00:00:00Z");
+
+/** Bundled roster, in the shape `TeamMember[]` — used when the DB is unreachable. */
+export function teamSeedRows(): TeamMember[] {
+  return TEAM_SEEDS.map((m, i) => ({
+    ...m,
+    id: -(i + 1),
+    visible: true,
+    createdAt: SEED_EPOCH,
+    updatedAt: SEED_EPOCH,
+  }));
+}
 
 const FAQ_SEEDS = [
   {
@@ -196,7 +335,10 @@ const FAQ_SEEDS = [
 /* Seeding (idempotent — never overwrites)                               */
 /* ------------------------------------------------------------------ */
 
-const g = globalThis as typeof globalThis & { __pcControlSeed?: Promise<void> | null };
+const g = globalThis as typeof globalThis & {
+  __pcControlSeed?: Promise<void> | null;
+  __pcTeamSeed?: Promise<void> | null;
+};
 
 /**
  * Once-per-database seed guard — see the note on CONTENT_SEED_KEY in data.ts.
@@ -265,6 +407,12 @@ function ensureControlSeeded(): Promise<void> {
       if (pCount.length === 0) {
         for (const p of PARTNER_SEEDS) await db.insert(partners).values(p);
       }
+      // Dream Team roster — a fresh database gets it with everything else.
+      // Databases created before this feature are handled by ensureTeamSeeded().
+      const tCount = await db.select({ id: teamMembers.id }).from(teamMembers).limit(1);
+      if (tCount.length === 0) {
+        for (const m of TEAM_SEEDS) await db.insert(teamMembers).values({ ...m, visible: true });
+      }
       // One-time migration: older sandboxes shipped a "systems" section here.
       // Replace it with the "Our Partners" section on the home page.
       const hasPartners = await db.select({ id: siteSections.id }).from(siteSections).where(eq(siteSections.key, "partners")).limit(1);
@@ -272,7 +420,7 @@ function ensureControlSeeded(): Promise<void> {
       if (hasSystems.length > 0 && hasPartners.length === 0) {
         await db
           .update(siteSections)
-          .set({ key: "partners", type: "partners", title: "Our Partners", position: 5, data: { index: "04" }, updatedAt: new Date() })
+          .set({ key: "partners", type: "partners", title: "Our Partners", position: 6, data: { index: "05" }, updatedAt: new Date() })
           .where(eq(siteSections.key, "systems"));
       }
       const fq = await db.select({ id: faqs.id }).from(faqs).limit(1);
@@ -346,6 +494,73 @@ function ensureControlSeeded(): Promise<void> {
   return g.__pcControlSeed;
 }
 
+/**
+ * Dream Team: one-time add for databases that were seeded before this feature
+ * existed, so the roster and its home-page block show up on the first request
+ * after a deploy without any manual SQL.
+ *
+ * It claims its own bookkeeping row (same trick as CONTROL_SEED_KEY), so it
+ * runs exactly once per database — deleting the team or hiding the section is
+ * never undone by a later cold start. Fresh databases already carry both from
+ * `ensureControlSeeded`, where the existence checks below simply no-op.
+ */
+const TEAM_SEED_KEY = "seed:team";
+
+function ensureTeamSeeded(): Promise<void> {
+  if (!g.__pcTeamSeed) {
+    g.__pcTeamSeed = (async () => {
+      const claimed = await db
+        .insert(siteSettings)
+        .values({ key: TEAM_SEED_KEY, value: { seededAt: new Date().toISOString() } })
+        .onConflictDoNothing({ target: siteSettings.key })
+        .returning({ key: siteSettings.key });
+      if (claimed.length === 0) return;
+
+      const members = await db.select({ id: teamMembers.id }).from(teamMembers).limit(1);
+      if (members.length === 0) {
+        for (const m of TEAM_SEEDS) await db.insert(teamMembers).values({ ...m, visible: true });
+      }
+
+      const hasTeam = await db.select({ id: siteSections.id }).from(siteSections).where(eq(siteSections.key, "team")).limit(1);
+      if (hasTeam.length === 0) {
+        const home = await db.select().from(siteSections).where(eq(siteSections.page, "home"));
+        // Slot the block straight after the hero: everything from position 1
+        // down moves one place, then the team takes position 1.
+        for (const s of home.filter((x) => x.position >= 1)) {
+          await db
+            .update(siteSections)
+            .set({ position: s.position + 1, updatedAt: new Date() })
+            .where(eq(siteSections.id, s.id));
+        }
+        for (const s of home) {
+          const shift = HOME_INDEX_SHIFT[s.key];
+          const current = typeof s.data?.index === "string" ? s.data.index : "";
+          if (shift && current === shift.from) {
+            await db
+              .update(siteSections)
+              .set({ data: { ...s.data, index: shift.to }, updatedAt: new Date() })
+              .where(eq(siteSections.id, s.id));
+          }
+        }
+        await db.insert(siteSections).values({
+          page: "home",
+          key: TEAM_SECTION.key,
+          type: TEAM_SECTION.type,
+          title: TEAM_SECTION.title,
+          position: TEAM_SECTION.position,
+          visible: true,
+          status: "published",
+          data: TEAM_SECTION.data,
+        });
+      }
+    })().catch((error: unknown) => {
+      g.__pcTeamSeed = null;
+      throw error;
+    });
+  }
+  return g.__pcTeamSeed;
+}
+
 /* ------------------------------------------------------------------ */
 /* Readers                                                             */
 /* ------------------------------------------------------------------ */
@@ -417,6 +632,11 @@ export async function getDesign(): Promise<DesignTokens> {
 
 export async function getSections(page = "home"): Promise<SiteSection[]> {
   await ensureControlSeeded();
+  // The Dream Team block adds itself to the home composition, so the one-time
+  // add has to run from the reader that builds that composition — a request
+  // that has never seen the section must not be the only thing that can
+  // create it. Memoized per process, so this is one claim query per cold start.
+  await ensureTeamSeeded();
   return db.select().from(siteSections).orderBy(asc(siteSections.position));
 }
 
@@ -441,6 +661,26 @@ export async function getPartners(onlyVisible = false): Promise<Partner[]> {
   await ensureControlSeeded();
   const rows = await db.select().from(partners).orderBy(asc(partners.position));
   return onlyVisible ? rows.filter((r) => r.visible) : rows;
+}
+
+/** Dream Team rows, ordered the way ops arranged them. */
+export async function getTeam(onlyVisible = false): Promise<TeamMember[]> {
+  await ensureTeamSeeded();
+  const rows = await db.select().from(teamMembers).orderBy(asc(teamMembers.position));
+  return onlyVisible ? rows.filter((r) => r.visible) : rows;
+}
+
+/**
+ * Home-page read. An empty roster is respected (the section renders nothing),
+ * but an unreachable database falls back to the bundled roster — the same
+ * keep-rendering rule `lib/data.ts` follows for stories and builds.
+ */
+export async function getTeamPublic(): Promise<TeamMember[]> {
+  try {
+    return await getTeam(true);
+  } catch {
+    return teamSeedRows();
+  }
 }
 
 export async function getFaqs(onlyVisible = false): Promise<Faq[]> {
