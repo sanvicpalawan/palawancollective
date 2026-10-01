@@ -72,6 +72,33 @@ npx drizzle-kit generate   # writes SQL into drizzle/
 npx drizzle-kit migrate
 ```
 
+### Upgrading an existing Dream Team deployment
+
+A database created before the Dream Team feature may not have `team_members`.
+Updating code alone does not synchronize the full database schema.
+
+1. Merge the code update and deploy that revision.
+2. From a trusted terminal with `DATABASE_URL` set to the **intended Neon
+   project/branch**, synchronize the schema from the same revision:
+   ```
+   npm run db:push
+   ```
+   This script uses `--force`; review the schema changes and take a backup
+   before running it against production. Do not paste the full initial SQL
+   into an already-populated database.
+3. Load the home page and `/api/public/site`, then open Ops → Dream team.
+   Verify the roster appears, edit a member, reload, and confirm the edit
+   persists. `/api/health` checks connectivity only, not table completeness.
+
+The runtime also repairs a **missing `team_members` table only**, provided the
+app's database role has `CREATE` permission on its schema. The repair, roster,
+section ordering and `seed:team` claim run in one transaction, guarded against
+concurrent cold starts. A stale claim from an earlier missing-table failure is
+replaced when the table is recreated; any new failure rolls back for retry.
+Existing tables are not altered, and edited/hidden/deleted members are not
+reset. Other missing tables, incompatible columns, connection failures and
+permission errors still require normal database maintenance.
+
 ## 3. Seed the content (automatic)
 
 Nothing to run. The first request that touches the database inserts the

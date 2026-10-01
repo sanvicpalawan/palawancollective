@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { teamMembers } from "@/db/schema";
 import type { TeamMember } from "@/db/schema";
-import { getTeam, snapshot } from "@/lib/control";
+import { ensureTeamSeeded, getTeam, snapshot } from "@/lib/control";
 import { num, raw, str } from "@/lib/content-shape";
 import { deleteUploadedFile, saveUploadedFile, uploadNameFromUrl } from "@/lib/storage";
 import { requireOps, withOpsRefresh } from "@/lib/ops-auth";
@@ -148,6 +148,7 @@ export async function PUT(request: Request) {
   if (gate.res) return gate.res;
   const id = Number(new URL(request.url).searchParams.get("id"));
   if (!id) return withOpsRefresh(Response.json({ ok: false, error: "Missing id." }, { status: 400 }), gate.refresh);
+  await ensureTeamSeeded();
   const current = (await db.select().from(teamMembers).where(eq(teamMembers.id, id)).limit(1))[0];
   if (!current) return withOpsRefresh(Response.json({ ok: false, error: "Not found." }, { status: 404 }), gate.refresh);
 
@@ -191,6 +192,7 @@ export async function DELETE(request: Request) {
   if (gate.res) return gate.res;
   const id = Number(new URL(request.url).searchParams.get("id"));
   if (!id) return withOpsRefresh(Response.json({ ok: false, error: "Missing id." }, { status: 400 }), gate.refresh);
+  await ensureTeamSeeded();
   const current: TeamMember | undefined = (await db.select().from(teamMembers).where(eq(teamMembers.id, id)).limit(1))[0];
   if (current) {
     await snapshot("team", String(id), `Deleted “${current.name}” from the Dream Team`, current);
