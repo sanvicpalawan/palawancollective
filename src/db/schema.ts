@@ -196,6 +196,28 @@ export const partners = pgTable("partners", {
 });
 
 /**
+ * Dream Team — the people in the ecosystem, shown on the home page right
+ * after the hero. Same control shape as `partners` (position + visible) with
+ * editorial fields, so ops can add, edit, reorder, hide and delete members
+ * from the console with no deploy. `photo` is either a bundled path
+ * (`/images/team/…`) or an upload served from `/uploads/…`.
+ */
+export const teamMembers = pgTable("team_members", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  role: text("role").notNull().default(""),
+  location: text("location").notNull().default(""),
+  photo: text("photo").notNull().default(""),
+  photoAlt: text("photo_alt").notNull().default(""),
+  bio: text("bio").notNull().default(""),
+  url: text("url").notNull().default(""),
+  position: integer("position").notNull().default(0),
+  visible: boolean("visible").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
  * Operator uploads (site logo, partner logos, media library) stored in the
  * database so they work on serverless hosts (Vercel) where the filesystem
  * is read-only. `data` is hex-encoded binary.
@@ -289,6 +311,7 @@ export type MediaAsset = typeof mediaAssets.$inferSelect;
 export type NavItem = typeof navItems.$inferSelect;
 export type SocialLink = typeof socialLinks.$inferSelect;
 export type Partner = typeof partners.$inferSelect;
+export type TeamMember = typeof teamMembers.$inferSelect;
 export type UploadedFile = typeof uploadedFiles.$inferSelect;
 export type Faq = typeof faqs.$inferSelect;
 export type Gallery = typeof galleries.$inferSelect;

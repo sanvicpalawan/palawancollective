@@ -27,13 +27,18 @@ and carries a hidden ops console for managing every part of the site.
 
 **What's in the box**
 
-- **Public site** — home with an ops-controlled section order, dispatch
-  journal (`/stories`), built environments (`/built`), practical guides
-  (`/palawan`), services + inquiry form (`/work-with-us`), newsletter,
-  RSS (`/feed.xml`), sitemap, robots and full OpenGraph metadata.
-- **Ops console** — a hidden `/admin` surface with 14 panels: content builder,
+- **Public site** — home with an ops-controlled section order (hero → **Dream
+  Team** → status strip → built → stories → …), dispatch journal (`/stories`),
+  built environments (`/built`), practical guides (`/palawan`), services +
+  inquiry form (`/work-with-us`), newsletter, RSS (`/feed.xml`), sitemap,
+  robots and full OpenGraph metadata.
+- **Dream Team** — a database-backed roster under the hero: photo, role,
+  location, short description, order, visibility. Managed in the console, no
+  deploy needed (see [Dream Team](#dream-team-home-page)).
+- **Ops console** — a hidden `/admin` surface with 21 panels: content builder,
   live design tokens, media library, navigation, newsletter, FAQ, galleries,
-  AI agents, model routing, settings, social links, logo, partners, overview.
+  AI agents, model routing, settings, social links, logo, partners, site
+  images, the journal entries, the collections and the Dream Team.
 - **AI operator** — chat endpoint that routes between OpenRouter (cloud) and
   Ollama (local) with a model catalog and a fallback knowledge base.
 - **One backend** — a single `DATABASE_URL` (Neon-ready Postgres). Content
@@ -117,22 +122,57 @@ guarded — nothing about the console is discoverable or crawlable.
 
 ## Ops console panels
 
+One panel per surface, codes `00`–`20` (the sidebar and the `OpsView` union in
+`src/lib/admin-store.ts` are the authority — this table mirrors them).
+
 | Code | Section | What it controls |
 | ---- | ------- | ---------------- |
 | 00 | Overview | Stats, traffic, inquiries, model routing, version history |
-| 01 | Content Builder | Homepage sections: order, visibility, drafts, content fields |
-| 02 | Design System | Colors, Google Fonts, type/space scale, radius, shadows — live |
-| 03 | Media Library | Upload (optimized), tag, delete |
-| 04 | Navigation | Header menu items |
-| 05 | Newsletter | Copy, subscriber list, CSV export, provider hook |
-| 06 | FAQ | Questions/answers, order, visibility |
-| 07 | Galleries | Home gallery, items, layout |
-| 08 | Agents | Create/start/stop AI agents, prompts, behavior rules, test bench |
-| 09 | Models | OpenRouter (cloud) ↔ Ollama (local) routing, key, model catalog |
-| 10 | Settings | Site identity, hero copy, contact, inquiries inbox |
-| 11 | Social | Social profile links (GitHub, X, Instagram, …) |
-| 12 | Logo | Site logo upload + per-surface sizes (hero/header/footer) |
-| 13 | Partners | Partner wall: add/edit/delete logos, links, order |
+| 01 | Site images | Hero carousel slides + per-page header photos |
+| 02 | Content Builder | Homepage sections: order, visibility, drafts, content fields |
+| 03 | Stories | Dispatch journal: list + `[slug]` entries |
+| 04 | Built | Built environments: list + `[slug]` entries |
+| 05 | Palawan | Practical guides: list + `[slug]` entries |
+| 06 | Systems | The “Systems We Build” collection |
+| 07 | Work with us | The services list behind the inquiry form |
+| 08 | Design System | Colors, Google Fonts, type/space scale, radius, shadows — live |
+| 09 | Media Library | Upload (optimized), tag, delete |
+| 10 | Navigation | Header menu items |
+| 11 | Newsletter | Copy, subscriber list, CSV export, provider hook |
+| 12 | FAQ | Questions/answers, order, visibility |
+| 13 | Galleries | Home gallery, items, layout |
+| 14 | Agents | Create/start/stop AI agents, prompts, behavior rules, test bench |
+| 15 | Models | OpenRouter (cloud) ↔ Ollama (local) routing, key, model catalog |
+| 16 | Settings | Site identity, hero copy, contact, inquiries inbox, version history |
+| 17 | Social | Social profile links (GitHub, X, Instagram, …) |
+| 18 | Logo | Site logo upload + per-surface sizes (hero/header/footer) |
+| 19 | Partners | Partner wall: add/edit/delete logos, links, order |
+| 20 | Dream team | The roster on the home page: photo, role, location, description, order |
+
+## Dream Team (home page)
+
+The block straight after the hero is a live roster, not markup. One row per
+person in `team_members`, so the whole thing moves without a deploy:
+
+```
+name · role · location · photo · photo_alt · bio · url · position · visible
+```
+
+- **Add / edit / reorder / hide / delete** — Ops console → `20 · Dream team`.
+  Every save snapshots first, so *Version history → Restore* undoes it.
+- **Photos** either ship in `public/images/team/` (the seven bundled names are
+  listed in `public/images/team/README.md`) or get uploaded from the panel —
+  uploads land in Postgres and are served from `/uploads/…`, so they survive a
+  redeploy. A card whose photo is missing renders the member's initials instead
+  of a broken image.
+- **The block itself** (heading, “§ 01” label, description, link) is edited in
+  Content Builder → `Dream Team`; hide it there to take the whole wall offline.
+- **Existing databases adopt it automatically.** The roster and its section row
+  are added by a one-time claim (`seed:team` in `site_settings`) on the first
+  request after deploy, and positions/`§` labels shift to make room after the
+  hero. Deleting members or the block is never undone by a later cold start.
+- **No database?** The home page still renders the bundled roster, the same
+  fallback rule `lib/data.ts` uses for stories and builds.
 
 ## Code tree
 
@@ -152,6 +192,7 @@ guarded — nothing about the console is discoverable or crawlable.
 │   └── images/
 │       ├── palawan-collective-wordmark.svg       # dark-ink wordmark
 │       ├── palawan-collective-wordmark-light.svg # light-ink (README / dark surfaces)
+│       ├── team/                                 # Dream Team portraits (+ README listing expected names)
 │       └── partners/                             # default partner logos (SVG)
 └── src/
     ├── app/
@@ -177,12 +218,14 @@ guarded — nothing about the console is discoverable or crawlable.
     │           ├── sections · navigation · faqs · galleries
     │           ├── design · media · logo
     │           ├── newsletter · settings · versions
-    │           └── agents · model-config · models/refresh · social · partners · inquiries
+    │           └── agents · model-config · models/refresh · catalog
+    │               social · partners · team · inquiries · images
+
     ├── components/
     │   ├── home/                     # hero, carousel, section blocks, partners wall,
-    │   │                             # status strip, field notes
+    │   │                             # Dream Team grid, status strip, field notes
     │   ├── site/                     # header, footer, mobile nav, logo
-    │   ├── ops/                      # console shell, 14 panels, stealth login,
+    │   ├── ops/                      # console shell, 21 panels, stealth login,
     │   │                             # agent chat, runtime, footer admin trigger
     │   ├── StoryBody · StoryCard · SocialLinks · SubscribeForm
     │   └── InquiryForm · AgentChat · RotatingBadge · PalawanClock · ui.tsx
@@ -199,6 +242,7 @@ guarded — nothing about the console is discoverable or crawlable.
         ├── ops-auth.ts               # credential check + JWT session (dual transport)
         ├── admin-store.ts            # Zustand console state
         ├── design.ts                 # design tokens + Google Fonts helpers
+        ├── content-shape.ts          # coercers for untrusted admin payloads
         ├── social.ts                 # social platform catalog
         ├── site.ts                   # site constants (contact, whatsapp, etc.)
         ├── storage.ts                # upload storage (Postgres-backed)
@@ -212,7 +256,7 @@ new uploads are stored in Postgres in the `uploaded_files` table.
 
 | Group | Tables |
 | ----- | ------ |
-| Content | `stories`, `builds`, `guides`, `field_log`, `galleries`, `faqs` |
+| Content | `stories`, `builds`, `guides`, `field_log`, `galleries`, `faqs`, `team_members` |
 | Audience | `subscribers`, `inquiries`, `analytics_events` |
 | Control | `site_settings`, `site_sections`, `design_tokens`, `media_assets`, `nav_items`, `social_links`, `partners`, `agents`, `model_config`, `content_versions`, `agent_logs`, `uploaded_files` |
 

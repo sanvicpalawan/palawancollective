@@ -140,6 +140,7 @@ const NAV: Array<{ view: OpsView; label: string; code: string }> = [
   { view: "social", label: "Social", code: "17" },
   { view: "logo", label: "Logo", code: "18" },
   { view: "partners", label: "Partners", code: "19" },
+  { view: "team", label: "Dream team", code: "20" },
 ];
 
 function Toasts() {
@@ -462,7 +463,7 @@ export function VersionsPanel({ compact = false }: { compact?: boolean }) {
       right={
         <select value={filter} onChange={(e) => setFilter(e.target.value)} className="ops-inp !w-auto !py-1.5 font-mono text-[12px]" aria-label="Filter versions">
           <option value="">all</option>
-          {["section", "design", "faq", "gallery", "nav", "agent", "settings", "story", "build", "guide", "image", "catalog"].map((t) => (
+          {["section", "design", "faq", "gallery", "nav", "agent", "settings", "story", "build", "guide", "image", "catalog", "team"].map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
         </select>

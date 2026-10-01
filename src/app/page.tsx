@@ -4,6 +4,7 @@ import { Hero } from "@/components/home/Hero";
 import { PalawanSection } from "@/components/home/PalawanSection";
 import { PartnersSection } from "@/components/home/PartnersSection";
 import { StatusStrip } from "@/components/home/StatusStrip";
+import { TeamSection } from "@/components/home/TeamSection";
 import { StoriesSection } from "@/components/home/StoriesSection";
 import { SystemsSection } from "@/components/home/SystemsSection";
 import { WorkSection } from "@/components/home/WorkSection";
@@ -57,6 +58,7 @@ export default async function HomePage() {
     return (
       <>
         <Hero settings={settings} />
+        <TeamSection />
         <StatusStrip latest={stories[0]} lastLog={log[0]} />
         <BuiltSection builds={builds} />
         <StoriesSection featured={featured} stories={others.slice(0, 6)} log={log} />
@@ -75,6 +77,8 @@ export default async function HomePage() {
         switch (s.key) {
           case "hero":
             return <Hero key={s.id} settings={settings} />;
+          case "team":
+            return <TeamSection key={s.id} section={s} />;
           case "status":
             return <StatusStrip key={s.id} latest={stories[0]} lastLog={log[0]} />;
           case "built":

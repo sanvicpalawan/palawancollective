@@ -43,6 +43,7 @@ const EXPECTED_TABLES = [
   "social_links",
   "stories",
   "subscribers",
+  "team_members",
   "uploaded_files",
 ];
 

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { agents, designTokens, faqs, galleries, navItems, siteSections, siteSettings, socialLinks } from "@/db/schema";
+import { agents, designTokens, faqs, galleries, navItems, siteSections, siteSettings, socialLinks, teamMembers } from "@/db/schema";
 import { getVersions } from "@/lib/control";
 import { requireOps, withOpsRefresh } from "@/lib/ops-auth";
 
@@ -147,6 +147,25 @@ export async function POST(request: Request) {
             const clash = await db.select({ id: socialLinks.id }).from(socialLinks).where(eq(socialLinks.platform, row.platform)).limit(1);
             if (!clash[0]) await db.insert(socialLinks).values(row);
           }
+        }
+        break;
+      case "team":
+        if (id && typeof snap.name === "string") {
+          const exists = (await db.select({ id: teamMembers.id }).from(teamMembers).where(eq(teamMembers.id, id)).limit(1))[0];
+          const row = {
+            name: String(snap.name).slice(0, 80),
+            role: typeof snap.role === "string" ? snap.role.slice(0, 80) : "",
+            location: typeof snap.location === "string" ? snap.location.slice(0, 80) : "",
+            photo: typeof snap.photo === "string" ? snap.photo.slice(0, 500) : "",
+            photoAlt: typeof snap.photoAlt === "string" ? snap.photoAlt.slice(0, 200) : "",
+            bio: typeof snap.bio === "string" ? snap.bio.slice(0, 4000) : "",
+            url: typeof snap.url === "string" ? snap.url.slice(0, 500) : "",
+            position: typeof snap.position === "number" ? snap.position : 0,
+            visible: snap.visible !== false,
+            updatedAt: new Date(),
+          };
+          if (exists) await db.update(teamMembers).set(row).where(eq(teamMembers.id, id));
+          else await db.insert(teamMembers).values({ ...row, createdAt: new Date() });
         }
         break;
       default:

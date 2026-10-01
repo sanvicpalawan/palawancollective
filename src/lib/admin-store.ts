@@ -30,7 +30,8 @@ export type OpsView =
   | "settings"
   | "social"
   | "logo"
-  | "partners";
+  | "partners"
+  | "team";
 
 export type Toast = { id: number; kind: "ok" | "err" | "info"; text: string };
 
