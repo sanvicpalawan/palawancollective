@@ -188,17 +188,17 @@ const PARTNER_SEEDS: Array<{ name: string; logo: string; url: string; position: 
 export type TeamSeed = Pick<TeamMember, "name" | "role" | "location" | "photo" | "photoAlt" | "bio" | "url" | "position">;
 
 /**
- * The founding roster. Photos are expected in `public/images/team/` with the
- * names below; ops can also upload replacements (those go to Postgres and are
- * served from /uploads/, so they survive a redeploy). A missing file renders as
- * an initials monogram rather than a broken image.
+ * The founding roster. The original portrait files are not in this repository,
+ * so seeds intentionally start photo-free instead of shipping seven 404 URLs.
+ * Operators can upload the real portraits from Ops → Dream team; those files
+ * are stored in Postgres and served from /uploads/ across redeploys.
  */
 const TEAM_SEEDS: TeamSeed[] = [
   {
     name: "David Le & Quennie Azarraga",
     role: "Founders",
     location: "Palawan Island & Global",
-    photo: "/images/team/1000057187.png",
+    photo: "",
     photoAlt: "David Le and Quennie Azarraga at an outdoor table with their dog, under a thatched roof",
     bio: "Founders of Kapwa Hospitality, sharing our proven formula, operational blueprint, and vision for meaningful hospitality with others across Palawan Island and globally.",
     url: "",
@@ -208,7 +208,7 @@ const TEAM_SEEDS: TeamSeed[] = [
     name: "Clint Ponce de Leon",
     role: "Certified Architect & Designer",
     location: "Palawan Island & Global",
-    photo: "/images/team/1000057270_2.jpg",
+    photo: "",
     photoAlt: "Portrait of Clint Ponce de Leon",
     bio: "Specializing in commercial and residential architectural design rooted in sustainable, context-driven spaces across Palawan Island and international projects.",
     url: "",
@@ -218,7 +218,7 @@ const TEAM_SEEDS: TeamSeed[] = [
     name: "Kyle Clark",
     role: "Marine Logistics & Expedition Lead",
     location: "Port Barton & San Vicente",
-    photo: "/images/team/1000057301.jpg",
+    photo: "",
     photoAlt: "Portrait of Kyle Clark on the water",
     bio: "Directs marine logistics for boats, managing a 400 HP speedboat seating up to 12 passengers. Specializes in supporting film and movie productions between November and July, while overseeing all deep-sea fishing expeditions along the west coast.",
     url: "",
@@ -228,7 +228,7 @@ const TEAM_SEEDS: TeamSeed[] = [
     name: "Lawrence Woodleigh",
     role: "Resort Island Owner & Developer",
     location: "Palawan Island & Global",
-    photo: "/images/team/1000057304.jpg",
+    photo: "",
     photoAlt: "Portrait of Lawrence Woodleigh",
     bio: "Experienced resort island owner and developer based north of El Nido. Directs remote island resort operations and infrastructure developments across projects spanning the entire island.",
     url: "",
@@ -238,7 +238,7 @@ const TEAM_SEEDS: TeamSeed[] = [
     name: "Alfie Lao",
     role: "Culinary Lead & Expedition Specialist",
     location: "Palawan Island",
-    photo: "/images/team/1000057306.jpg",
+    photo: "",
     photoAlt: "Portrait of Alfie Lao",
     bio: "Culinary lead who splits time between jungle mountaineering and environmental expeditions. Brings rare foraged inspirations and specialized menu implementations through exclusive food pop-ups a few times a month.",
     url: "",
@@ -248,7 +248,7 @@ const TEAM_SEEDS: TeamSeed[] = [
     name: "James & Ina",
     role: "Amuma Ecosystems Developers",
     location: "San Vicente & Balabac",
-    photo: "/images/team/1000057302_2.jpg",
+    photo: "",
     photoAlt: "Portrait of Ina, of James & Ina",
     bio: "An extraordinary team pairing an Italian artist with a Filipino actress leading Amuma Ecosystems. Currently developing their 3rd resort across San Vicente and Balabac.",
     url: "",
@@ -258,13 +258,26 @@ const TEAM_SEEDS: TeamSeed[] = [
     name: "Tonton Varquez",
     role: "Hospitality Operations & Aerial Media",
     location: "San Vicente",
-    photo: "/images/team/1000057299_2.jpg",
+    photo: "",
     photoAlt: "Portrait of Tonton Varquez",
     bio: "One of the original friends met in San Vicente. A great friend with strong hospitality expertise managing several getaways across the municipality. Fully drone-ready for aerial property capture.",
     url: "",
     position: 6,
   },
 ];
+
+/** Broken photo URLs written by the first Dream Team seed, before it was clear
+ * that these private portrait files were not included in the GitHub repository.
+ * Keep them out of the public markup until the operator uploads the real files. */
+const MISSING_TEAM_PHOTO_URLS = new Set([
+  "/images/team/1000057187.png",
+  "/images/team/1000057270_2.jpg",
+  "/images/team/1000057301.jpg",
+  "/images/team/1000057304.jpg",
+  "/images/team/1000057306.jpg",
+  "/images/team/1000057302_2.jpg",
+  "/images/team/1000057299_2.jpg",
+]);
 
 /**
  * Home sections on databases seeded before the Dream Team existed still carry
@@ -707,7 +720,10 @@ export async function getTeam(onlyVisible = false): Promise<TeamMember[]> {
  */
 export async function getTeamPublic(): Promise<TeamMember[]> {
   try {
-    return await getTeam(true);
+    const members = await getTeam(true);
+    return members.map((member) =>
+      MISSING_TEAM_PHOTO_URLS.has(member.photo) ? { ...member, photo: "" } : member,
+    );
   } catch {
     return teamSeedRows();
   }

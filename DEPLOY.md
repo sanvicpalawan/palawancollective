@@ -36,10 +36,11 @@ Vercel with zero extra services.
    `NEXT_PUBLIC_SITE_URL`. Optional: `OPENROUTER_API_KEY`, `OLLAMA_BASE_URL`.
 6. **Deploy.** The build doesn't touch the database, and content seeds
    itself on the first request — nothing else to run.
-7. **Smoke test:** home page renders → admin (footer Admin / triple-click
-   logo → passkey) → upload a logo or partner in the console → it shows on
-   the live site and survives a redeploy (it lives in Neon, not the file
-   system).
+7. **Smoke test:** open `https://yourdomain.com/api/health` and confirm it
+   returns `{"ok":true,"database":"connected","schema":"ready"}`. Then open
+   Admin → Dream team, upload a real portrait, reload the page, and confirm it
+   still displays. Uploads are persisted in Neon, not Vercel's temporary file
+   system.
 
 ## 1. Create the Neon project
 
@@ -97,7 +98,10 @@ concurrent cold starts. A stale claim from an earlier missing-table failure is
 replaced when the table is recreated; any new failure rolls back for retry.
 Existing tables are not altered, and edited/hidden/deleted members are not
 reset. Other missing tables, incompatible columns, connection failures and
-permission errors still require normal database maintenance.
+permission errors still require normal database maintenance. `/api/health`
+checks every required table (including `uploaded_files`), not just `SELECT 1`;
+if it reports `schema: "incomplete"`, run `npm run db:push` against the same
+Neon database/branch used by Vercel.
 
 ## 3. Seed the content (automatic)
 
@@ -137,11 +141,17 @@ Postgres** (hex-encoded in the `uploaded_files` table) and served by
 on disk. This is what makes Vercel work with zero extra services — uploads
 survive redeploys because they live in Neon.
 
-- Keep logos as SVG or reasonably sized PNG/JPG (they're stored per byte).
-  Neon's free plan holds 0.5 GB — plenty for logos and a small media library.
-- If you later upload large video libraries, swap `src/lib/storage.ts`
-  (three small functions) for an S3-compatible bucket (Cloudflare R2 / S3).
-  Nothing else changes — every asset is referenced by its `/uploads/*` URL.
+- Vercel Functions reject request bodies above 4.5 MB before the app can
+  process them. The admin panel now compresses large raster images in the
+  browser and uploads them one at a time, keeping each request below 3.5 MB.
+  Images and Dream Team portraits are still written to Postgres and served from
+  `/uploads/*`.
+- MP4 uploads through the current Postgres route are limited to 3.5 MB. For
+  larger video files, use direct-to-object-storage uploads (Vercel Blob, R2 or
+  S3); do not raise the route's limit, because Vercel will reject the request
+  before it reaches the app.
+- Neon's free plan holds 0.5 GB — plenty for logos and a small image library.
+  If that changes, swap `src/lib/storage.ts` for an object-storage adapter.
 
 ## Operational notes
 

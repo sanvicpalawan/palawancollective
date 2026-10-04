@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { opsFetch, opsJson, useOpsStore } from "@/lib/admin-store";
+import { prepareImageForUpload } from "@/lib/image-upload";
 import { Btn, Empty, F, Inp, Panel, Tog } from "./console";
 
 type PartnerRow = {
@@ -63,7 +64,7 @@ export function PartnersPanel() {
       const form = new FormData();
       form.append("name", addName.trim());
       form.append("url", addUrl.trim());
-      form.append("logo", addFile);
+      form.append("logo", await prepareImageForUpload(addFile));
       const res = await opsFetch("/api/admin/partners", { method: "POST", body: form });
       const d = (await res.json()) as { ok?: boolean; partner?: PartnerRow; error?: string };
       if (!res.ok || !d.ok || !d.partner) throw new Error(d.error || "Add failed.");

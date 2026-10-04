@@ -2,11 +2,11 @@ import { unlink } from "node:fs/promises";
 import path from "node:path";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { teamMembers } from "@/db/schema";
+import { teamMembers, uploadedFiles } from "@/db/schema";
 import type { TeamMember } from "@/db/schema";
 import { ensureTeamSeeded, getTeam, snapshot } from "@/lib/control";
 import { num, raw, str } from "@/lib/content-shape";
-import { deleteUploadedFile, saveUploadedFile, uploadNameFromUrl } from "@/lib/storage";
+import { deleteUploadedFile, uploadNameFromUrl } from "@/lib/storage";
 import { requireOps, withOpsRefresh } from "@/lib/ops-auth";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +22,9 @@ export const dynamic = "force-dynamic";
 // Legacy disk location — cleaned for pre-Postgres files only.
 const LEGACY_DIR = path.join(process.cwd(), "uploads");
 const PHOTO_MIMES = new Set(["image/png", "image/jpeg", "image/webp", "image/avif"]);
-const MAX_PHOTO = 12 * 1024 * 1024;
+// Keep the file below Vercel Functions' 4.5 MB request-body ceiling (with
+// additional room for multipart boundaries and the other form fields).
+const MAX_PHOTO = 3_500_000;
 const EXT_BY_MIME: Record<string, string> = {
   "image/png": ".png",
   "image/jpeg": ".jpg",
@@ -54,14 +56,17 @@ function normalizePhoto(value: string): string {
   return v;
 }
 
-async function savePhoto(file: File): Promise<string> {
+type PhotoUpload = { name: string; url: string; mime: string; data: Buffer };
+
+async function readPhoto(file: File): Promise<PhotoUpload> {
   if (!PHOTO_MIMES.has(file.type)) throw new Error("Photo must be PNG, JPG, WebP or AVIF.");
   if (file.size === 0) throw new Error("Photo file is empty.");
-  if (file.size > MAX_PHOTO) throw new Error("Photo must be ≤12MB.");
-  const buf = Buffer.from(await file.arrayBuffer());
-  const filename = `team-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}${EXT_BY_MIME[file.type]}`;
-  await saveUploadedFile(filename, file.type, buf);
-  return `/uploads/${filename}`;
+  if (file.size > MAX_PHOTO) {
+    throw new Error("Photo is too large for Vercel. Choose a smaller image or let the admin panel compress it first.");
+  }
+  const data = Buffer.from(await file.arrayBuffer());
+  const name = `team-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}${EXT_BY_MIME[file.type]}`;
+  return { name, url: `/uploads/${name}`, mime: file.type, data };
 }
 
 async function removeUploadFile(url: string): Promise<void> {
@@ -105,10 +110,10 @@ export async function POST(request: Request) {
   const f = readFields(form);
   if (!f.name) return withOpsRefresh(Response.json({ ok: false, error: "Name is required." }, { status: 400 }), gate.refresh);
 
-  let photo = f.photoPath ?? "";
+  let photoUpload: PhotoUpload | null = null;
   const file = form.get("photoFile");
   try {
-    if (file instanceof File && file.size > 0) photo = await savePhoto(file);
+    if (file instanceof File && file.size > 0) photoUpload = await readPhoto(file);
   } catch (e) {
     return withOpsRefresh(
       Response.json({ ok: false, error: e instanceof Error ? e.message : "Upload failed." }, { status: 400 }),
@@ -118,25 +123,37 @@ export async function POST(request: Request) {
 
   try {
     const all = await getTeam();
-    const [row] = await db
-      .insert(teamMembers)
-      .values({
-        name: f.name,
-        role: f.role ?? "",
-        location: f.location ?? "",
-        bio: f.bio ?? "",
-        photo,
-        photoAlt: f.photoAlt ?? "",
-        url: f.url ?? "",
-        position: f.position ?? all.length,
-        visible: f.visible ?? true,
-      })
-      .returning();
+    const row = await db.transaction(async (tx) => {
+      if (photoUpload) {
+        await tx.insert(uploadedFiles).values({
+          name: photoUpload.name,
+          mime: photoUpload.mime,
+          data: photoUpload.data.toString("hex"),
+          size: photoUpload.data.length,
+        });
+      }
+      const [member] = await tx
+        .insert(teamMembers)
+        .values({
+          name: f.name,
+          role: f.role ?? "",
+          location: f.location ?? "",
+          bio: f.bio ?? "",
+          photo: photoUpload?.url ?? f.photoPath ?? "",
+          photoAlt: f.photoAlt ?? "",
+          url: f.url ?? "",
+          position: f.position ?? all.length,
+          visible: f.visible ?? true,
+        })
+        .returning();
+      if (!member) throw new Error("The member was not inserted.");
+      return member;
+    });
     await snapshot("team", String(row.id), `Added “${row.name}” to the Dream Team`, row);
     return withOpsRefresh(Response.json({ ok: true, member: row }), gate.refresh);
   } catch (e) {
     return withOpsRefresh(
-      Response.json({ ok: false, error: e instanceof Error ? e.message : "Save failed." }, { status: 400 }),
+      Response.json({ ok: false, error: e instanceof Error ? e.message : "Save failed." }, { status: 500 }),
       gate.refresh,
     );
   }
@@ -168,12 +185,12 @@ export async function PUT(request: Request) {
   if (f.position !== null) patch.position = f.position;
   if (f.visible !== null) patch.visible = f.visible;
 
+  let photoUpload: PhotoUpload | null = null;
   const file = form.get("photoFile");
   if (file instanceof File && file.size > 0) {
     try {
-      const photo = await savePhoto(file);
-      if (current.photo.startsWith("/uploads/team-")) await removeUploadFile(current.photo);
-      patch.photo = photo;
+      photoUpload = await readPhoto(file);
+      patch.photo = photoUpload.url;
     } catch (e) {
       return withOpsRefresh(
         Response.json({ ok: false, error: e instanceof Error ? e.message : "Photo upload failed." }, { status: 400 }),
@@ -182,8 +199,30 @@ export async function PUT(request: Request) {
     }
   }
 
-  const [row] = await db.update(teamMembers).set(patch).where(eq(teamMembers.id, id)).returning();
-  return withOpsRefresh(Response.json({ ok: true, member: row }), gate.refresh);
+  try {
+    const rows = await db.transaction(async (tx) => {
+      if (photoUpload) {
+        await tx.insert(uploadedFiles).values({
+          name: photoUpload.name,
+          mime: photoUpload.mime,
+          data: photoUpload.data.toString("hex"),
+          size: photoUpload.data.length,
+        });
+      }
+      return tx.update(teamMembers).set(patch).where(eq(teamMembers.id, id)).returning();
+    });
+    const row = rows[0];
+    if (!row) return withOpsRefresh(Response.json({ ok: false, error: "Not found." }, { status: 404 }), gate.refresh);
+    if (current.photo !== row.photo && current.photo.startsWith("/uploads/team-")) {
+      await removeUploadFile(current.photo);
+    }
+    return withOpsRefresh(Response.json({ ok: true, member: row }), gate.refresh);
+  } catch (e) {
+    return withOpsRefresh(
+      Response.json({ ok: false, error: e instanceof Error ? e.message : "Save failed." }, { status: 500 }),
+      gate.refresh,
+    );
+  }
 }
 
 /** Delete a member and any upload it owned. */
@@ -196,8 +235,10 @@ export async function DELETE(request: Request) {
   const current: TeamMember | undefined = (await db.select().from(teamMembers).where(eq(teamMembers.id, id)).limit(1))[0];
   if (current) {
     await snapshot("team", String(id), `Deleted “${current.name}” from the Dream Team`, current);
-    await removeUploadFile(current.photo);
     await db.delete(teamMembers).where(eq(teamMembers.id, id));
+    // Delete the binary only after the roster row has committed; a failed DB
+    // delete must never leave a live roster entry pointing to a missing photo.
+    await removeUploadFile(current.photo);
   }
   return withOpsRefresh(Response.json({ ok: true }), gate.refresh);
 }

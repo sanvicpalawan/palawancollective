@@ -160,11 +160,11 @@ name · role · location · photo · photo_alt · bio · url · position · visi
 
 - **Add / edit / reorder / hide / delete** — Ops console → `20 · Dream team`.
   Every save snapshots first, so *Version history → Restore* undoes it.
-- **Photos** either ship in `public/images/team/` (the seven bundled names are
-  listed in `public/images/team/README.md`) or get uploaded from the panel —
-  uploads land in Postgres and are served from `/uploads/…`, so they survive a
-  redeploy. A card whose photo is missing renders the member's initials instead
-  of a broken image.
+- **Photos**: the original portrait files are not present in this GitHub repo,
+  so the roster now uses initials until the real photos are uploaded. Use the
+  ⇧ button on each member; uploads are saved to Postgres and served from
+  `/uploads/…`, so they survive redeploys. Oversized raster images are reduced
+  in the browser to fit Vercel's request limit before upload.
 - **The block itself** (heading, “§ 01” label, description, link) is edited in
   Content Builder → `Dream Team`; hide it there to take the whole wall offline.
 - **Existing databases adopt it automatically.** The roster and its section row
@@ -200,7 +200,7 @@ name · role · location · photo · photo_alt · bio · url · position · visi
 │   └── images/
 │       ├── palawan-collective-wordmark.svg       # dark-ink wordmark
 │       ├── palawan-collective-wordmark-light.svg # light-ink (README / dark surfaces)
-│       ├── team/                                 # Dream Team portraits (+ README listing expected names)
+│       ├── team/                                 # Dream Team portrait upload notes (photos are operator-supplied)
 │       └── partners/                             # default partner logos (SVG)
 └── src/
     ├── app/
@@ -215,7 +215,7 @@ name · role · location · photo · photo_alt · bio · url · position · visi
     │   ├── uploads/[...path]/        # serves /uploads/* with a file whitelist
     │   ├── feed.xml/ · sitemap.ts · robots.ts · icon.svg · not-found.tsx
     │   └── api/
-    │       ├── health/               # liveness
+    │       ├── health/               # database/schema readiness
     │       ├── track/                # analytics events
     │       ├── subscribe/            # newsletter signups
     │       ├── inquiries/            # project/partnership inquiries

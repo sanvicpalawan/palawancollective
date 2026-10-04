@@ -14,8 +14,11 @@ export const dynamic = "force-dynamic";
 const LEGACY_DIR = path.join(process.cwd(), "uploads");
 const IMAGE_MIMES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const VIDEO_MIMES = new Set(["video/mp4"]);
-const MAX_IMAGE = 15 * 1024 * 1024;
-const MAX_VIDEO = 60 * 1024 * 1024;
+// A Vercel Function accepts request bodies up to 4.5 MB. Keep the total
+// multipart payload below that ceiling, including form fields and boundaries.
+const MAX_REQUEST_UPLOAD = 3_500_000;
+const MAX_IMAGE = MAX_REQUEST_UPLOAD;
+const MAX_VIDEO = MAX_REQUEST_UPLOAD;
 
 function slugFilename(name: string): string {
   const clean = name.toLowerCase().replace(/[^a-z0-9.]+/g, "-").replace(/-+/g, "-").slice(0, 60);
@@ -47,6 +50,12 @@ export async function POST(request: Request) {
   }
   if (files.length > 10) {
     return withOpsRefresh(Response.json({ ok: false, error: "Max 10 files at a time." }, { status: 400 }), gate.refresh);
+  }
+  if (files.reduce((sum, file) => sum + file.size, 0) > MAX_REQUEST_UPLOAD) {
+    return withOpsRefresh(
+      Response.json({ ok: false, error: "Upload files one at a time; each Vercel request must stay under 3.5 MB." }, { status: 413 }),
+      gate.refresh,
+    );
   }
 
   const saved: Array<{ id: number; url: string }> = [];
@@ -99,7 +108,7 @@ export async function POST(request: Request) {
 
   if (saved.length === 0) {
     return withOpsRefresh(
-      Response.json({ ok: false, error: "Nothing saved. Use JPG, PNG, WebP (≤15MB) or MP4 (≤60MB)." }, { status: 400 }),
+      Response.json({ ok: false, error: "Nothing saved. Use JPG, PNG, WebP or MP4 under 3.5 MB per request." }, { status: 400 }),
       gate.refresh,
     );
   }

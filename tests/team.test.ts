@@ -21,6 +21,7 @@ let pool: Pool;
 let control: typeof import("../src/lib/control");
 let teamRoute: typeof import("../src/app/api/admin/team/route");
 let publicRoute: typeof import("../src/app/api/public/site/route");
+let uploadsRoute: typeof import("../src/app/uploads/[...path]/route");
 let mintOpsToken: typeof import("../src/lib/ops-auth").mintOpsToken;
 
 function coldStart() {
@@ -51,6 +52,7 @@ before(async () => {
   control = await import("../src/lib/control");
   teamRoute = await import("../src/app/api/admin/team/route");
   publicRoute = await import("../src/app/api/public/site/route");
+  uploadsRoute = await import("../src/app/uploads/[...path]/route");
   ({ mintOpsToken } = await import("../src/lib/ops-auth"));
 });
 
@@ -192,6 +194,16 @@ test("edits, visibility and deliberate deletions survive a new process seed chec
   assert.equal((await control.getSections()).find((section) => section.key === "team")?.title, "Our people");
 });
 
+test("known legacy photo paths missing from GitHub are not rendered as broken image URLs", async () => {
+  await control.getTeam();
+  await pool.query("update team_members set photo = '/images/team/1000057187.png' where id = 1");
+  const publicRoster = await control.getTeamPublic();
+  assert.equal(publicRoster.find((member) => member.id === 1)?.photo, "");
+  // The public projection must not rewrite the operator/database row.
+  const { rows } = await pool.query("select photo from team_members where id = 1");
+  assert.equal(rows[0].photo, "/images/team/1000057187.png");
+});
+
 test("an intentionally emptied roster and deleted block stay deleted", async () => {
   await control.getTeam();
   await pool.query("delete from team_members; delete from site_sections where key = 'team'");
@@ -242,14 +254,45 @@ test("authenticated team GET repairs and lists the roster", async () => {
   assert.equal(body.team.length, control.teamSeedRows().length);
 });
 
-test("authenticated team POST repairs before adding a member", async () => {
+test("authenticated team POST saves photo bytes and roster row durably together", async () => {
+  const bytes = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3]);
   const form = new FormData();
-  form.set("name", "New person");
+  form.set("name", "New person with photo");
+  form.set("photoFile", new File([bytes], "portrait.png", { type: "image/png" }));
   const response = await teamRoute.POST(await opsRequest("POST", form));
   assert.equal(response.status, 200);
-  assert.equal((await response.json()).member.name, "New person");
+  const { member } = await response.json();
+  assert.equal(member.name, "New person with photo");
+  assert.match(member.photo, /^\/uploads\/team-[\w-]+\.png$/);
   assert.equal(await count("team_members"), control.teamSeedRows().length + 1);
   assert.equal(await count("content_versions"), 1);
+
+  const name = member.photo.slice("/uploads/".length);
+  const { rows } = await pool.query("select data, size from uploaded_files where name = $1", [name]);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].size, bytes.length);
+  assert.deepEqual(Buffer.from(rows[0].data, "hex"), bytes);
+
+  const imageResponse = await uploadsRoute.GET(
+    new Request(`https://palawancollective.test${member.photo}`),
+    { params: Promise.resolve({ path: [name] }) },
+  );
+  assert.equal(imageResponse.status, 200);
+  assert.equal(imageResponse.headers.get("content-type"), "image/png");
+  assert.deepEqual(Buffer.from(await imageResponse.arrayBuffer()), bytes);
+});
+
+test("failed team save rolls back an uploaded photo instead of orphaning bytes", async () => {
+  await control.getTeam();
+  await pool.query("alter table team_members add constraint reject_rolled_back_photo check (name <> 'Rollback photo')");
+  const form = new FormData();
+  form.set("name", "Rollback photo");
+  form.set("photoFile", new File([Buffer.from("photo-bytes")], "portrait.png", { type: "image/png" }));
+  const response = await teamRoute.POST(await opsRequest("POST", form));
+  assert.equal(response.status, 500);
+  assert.equal(await count("team_members"), control.teamSeedRows().length);
+  assert.equal((await pool.query("select name from uploaded_files")).rowCount, 0);
+  await pool.query("alter table team_members drop constraint reject_rolled_back_photo");
 });
 
 test("authenticated team PUT can be the first request against a missing table", async () => {
