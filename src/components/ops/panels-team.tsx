@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { opsFetch, opsJson, useOpsStore } from "@/lib/admin-store";
+import { prepareImageForUpload } from "@/lib/image-upload";
 import { Btn, Empty, F, Inp, Panel, Tog, Txt } from "./console";
 
 type TeamRow = {
@@ -19,6 +20,30 @@ type TeamRow = {
 
 type Editable = Pick<TeamRow, "name" | "role" | "location" | "photo" | "photoAlt" | "bio" | "url">;
 
+function MemberPhoto({ src, name, className }: { src: string; name: string; className: string }) {
+  const [failedFor, setFailedFor] = useState<string | null>(null);
+  const failed = failedFor === src;
+  const initials = name
+    .split(/[\s&]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+
+  return (
+    <div className={`relative overflow-hidden bg-[#f2ece3] ${className}`}>
+      {src && !failed ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" onError={() => setFailedFor(src)} />
+      ) : (
+        <span className="flex h-full w-full items-center justify-center font-serif text-2xl text-stone-500/70">
+          {initials || "?"}
+        </span>
+      )}
+    </div>
+  );
+}
+
 /**
  * Dream team panel — the roster behind the home page block that sits under the
  * hero. Add, edit, reorder, hide and delete members; every save snapshots, so
@@ -28,6 +53,7 @@ export function DreamTeamPanel() {
   const [rows, setRows] = useState<TeamRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState<number | null>(null);
   const [draft, setDraft] = useState<TeamRow | null>(null);
   const { pushToast } = useOpsStore();
 
@@ -50,17 +76,20 @@ export function DreamTeamPanel() {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...fields } : r)));
   }
 
-  function put(id: number, fields: Record<string, string>, file?: File) {
+  async function put(id: number, fields: Record<string, string>, file?: File): Promise<boolean> {
     const form = new FormData();
     for (const [k, v] of Object.entries(fields)) form.append(k, v);
     if (file) form.append("photoFile", file);
-    opsFetch(`/api/admin/team?id=${id}`, { method: "PUT", body: form })
-      .then((res) => res.json())
-      .then((d: { ok?: boolean; member?: TeamRow; error?: string }) => {
-        if (d.ok && d.member) setRows((prev) => prev.map((r) => (r.id === id ? d.member! : r)));
-        else pushToast("err", d.error || "Save failed.");
-      })
-      .catch((e: Error) => pushToast("err", e.message));
+    try {
+      const res = await opsFetch(`/api/admin/team?id=${id}`, { method: "PUT", body: form });
+      const d = (await res.json().catch(() => ({}))) as { ok?: boolean; member?: TeamRow; error?: string };
+      if (!res.ok || !d.ok || !d.member) throw new Error(d.error || `Save failed (${res.status}).`);
+      setRows((prev) => prev.map((r) => (r.id === id ? d.member! : r)));
+      return true;
+    } catch (e) {
+      pushToast("err", e instanceof Error ? e.message : "Save failed.");
+      return false;
+    }
   }
 
   // ---- per-row photo upload ------------------------------------------------
@@ -72,13 +101,21 @@ export function DreamTeamPanel() {
     photoInput.current?.click();
   }
 
-  function onPhotoChosen(e: React.ChangeEvent<HTMLInputElement>) {
+  async function onPhotoChosen(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     const id = photoTarget.current;
     e.target.value = "";
     if (!file || id === null) return;
-    put(id, {}, file);
-    pushToast("ok", "Photo uploaded — stored in the database, so it survives a redeploy.");
+    setUploadingPhoto(id);
+    try {
+      const prepared = await prepareImageForUpload(file);
+      const saved = await put(id, {}, prepared);
+      if (saved) pushToast("ok", "Photo saved to the database; it will survive a redeploy.");
+    } catch (error) {
+      pushToast("err", error instanceof Error ? error.message : "Photo upload failed.");
+    } finally {
+      setUploadingPhoto(null);
+    }
   }
 
   function move(id: number, dir: -1 | 1) {
@@ -136,7 +173,7 @@ export function DreamTeamPanel() {
       form.append("url", draft.url.trim());
       form.append("position", String(rows.length));
       form.append("visible", "true");
-      if (addFile) form.append("photoFile", addFile);
+      if (addFile) form.append("photoFile", await prepareImageForUpload(addFile));
       const res = await opsFetch("/api/admin/team", { method: "POST", body: form });
       const d = (await res.json()) as { ok?: boolean; member?: TeamRow; error?: string };
       if (!res.ok || !d.ok || !d.member) throw new Error(d.error || "Add failed.");
@@ -243,7 +280,7 @@ export function DreamTeamPanel() {
                   Clear file
                 </Btn>
               )}
-              <span className="font-mono text-[11px] text-stone-500">PNG · JPG · WebP · AVIF, ≤12MB, portrait 4:5 crops best</span>
+              <span className="font-mono text-[11px] text-stone-500">PNG · JPG · WebP · AVIF · compressed for Vercel · portrait 4:5 crops best</span>
               <Btn kind="primary" disabled={busy} onClick={() => void add()}>
                 {busy ? "Adding…" : "+ Add member"}
               </Btn>
@@ -255,16 +292,7 @@ export function DreamTeamPanel() {
           {sorted.map((r, i) => (
             <div key={r.id} className="border border-white/10 bg-white/[0.02] p-3">
               <div className="flex items-start gap-3">
-                <div className="relative h-24 w-[4.8rem] shrink-0 overflow-hidden rounded-lg bg-[#f2ece3]">
-                  {r.photo ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={r.photo} alt="" className="h-full w-full object-cover" loading="lazy" />
-                  ) : (
-                    <span className="flex h-full w-full items-center justify-center font-mono text-[9px] uppercase text-stone-500">
-                      no photo
-                    </span>
-                  )}
-                </div>
+                <MemberPhoto src={r.photo} name={r.name} className="h-24 w-[4.8rem] shrink-0 rounded-lg" />
 
                 <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-2">
                   <Inp
@@ -323,8 +351,8 @@ export function DreamTeamPanel() {
                 <div className="flex shrink-0 flex-col items-end gap-2">
                   <Tog on={r.visible} onChange={(v) => put(r.id, { visible: v ? "true" : "false" })} label={`Toggle ${r.name}`} />
                   <div className="flex gap-1">
-                    <Btn onClick={() => pickPhoto(r.id)} title="Upload a new photo">
-                      ⇧
+                    <Btn onClick={() => pickPhoto(r.id)} title="Upload a new photo" disabled={uploadingPhoto !== null}>
+                      {uploadingPhoto === r.id ? "…" : "⇧"}
                     </Btn>
                     <Btn onClick={() => move(r.id, -1)} title="Move up" disabled={i === 0}>
                       ↑
@@ -372,21 +400,7 @@ export function DreamTeamPanel() {
               .filter((r) => r.visible)
               .map((r) => (
                 <div key={r.id} className="overflow-hidden rounded-[var(--pc-radius,18px)] border border-ink/10 bg-[#f8f4ed]">
-                  <div className="relative aspect-[4/5] bg-[#e8dfd0]">
-                    {r.photo ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={r.photo} alt="" className="h-full w-full object-cover" loading="lazy" />
-                    ) : (
-                      <span className="flex h-full w-full items-center justify-center font-serif text-3xl text-[#161411]/25">
-                        {r.name
-                          .split(/[\s&]+/)
-                          .filter(Boolean)
-                          .slice(0, 2)
-                          .map((p) => p[0]?.toUpperCase() ?? "")
-                          .join("")}
-                      </span>
-                    )}
-                  </div>
+                  <MemberPhoto src={r.photo} name={r.name} className="aspect-[4/5] bg-[#e8dfd0]" />
                   <div className="p-3">
                     <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-[#a14a29]">{r.role || "—"}</p>
                     <p className="mt-1 truncate font-serif text-[15px] text-[#161411]">{r.name}</p>

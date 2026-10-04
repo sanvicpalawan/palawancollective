@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { opsFetch, opsJson, useOpsStore } from "@/lib/admin-store";
+import { prepareImageForUpload } from "@/lib/image-upload";
 import { Btn, Empty, F, Inp, Panel, Sel, Tog, Txt } from "./console";
 
 /* ------------------------------------------------------------------ */
@@ -290,8 +291,9 @@ function ImageField({ label, hint, value, onChange }: { label: string; hint?: st
     if (!file) return;
     setUploading(true);
     try {
+      const prepared = await prepareImageForUpload(file);
       const form = new FormData();
-      form.append("files", file);
+      form.append("files", prepared);
       const res = await opsFetch("/api/admin/media", { method: "POST", body: form });
       const d = (await res.json()) as { ok?: boolean; saved?: Array<{ url: string }>; error?: string };
       if (!res.ok || !d.ok || !d.saved?.[0]) throw new Error(d.error || "Upload failed.");
@@ -325,7 +327,7 @@ function ImageField({ label, hint, value, onChange }: { label: string; hint?: st
             {uploading ? "Uploading…" : "Upload"}
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp,image/svg+xml"
+              accept="image/jpeg,image/png,image/webp"
               className="hidden"
               disabled={uploading}
               onChange={(e) => {

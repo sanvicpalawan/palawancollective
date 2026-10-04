@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic";
 // Legacy disk location — cleaned for pre-Postgres files only.
 const LEGACY_DIR = path.join(process.cwd(), "uploads");
 const LOGO_MIMES = new Set(["image/svg+xml", "image/png", "image/jpeg", "image/webp"]);
-const MAX_LOGO = 10 * 1024 * 1024;
+// Leave headroom beneath Vercel's 4.5 MB function request-body limit.
+const MAX_LOGO = 3_500_000;
 const EXT_BY_MIME: Record<string, string> = {
   "image/svg+xml": ".svg",
   "image/png": ".png",
@@ -35,7 +36,7 @@ function normalizeUrl(raw: string): string {
 async function saveLogo(file: File): Promise<string> {
   if (!LOGO_MIMES.has(file.type)) throw new Error("Logo must be SVG, PNG, JPG or WebP.");
   if (file.size === 0) throw new Error("Logo file is empty.");
-  if (file.size > MAX_LOGO) throw new Error("Logo must be ≤10MB.");
+  if (file.size > MAX_LOGO) throw new Error("Logo must be under 3.5 MB after compression to fit Vercel's upload limit.");
   const buf = Buffer.from(await file.arrayBuffer());
   if (file.type === "image/svg+xml") {
     const head = buf.subarray(0, 512).toString("utf8").toLowerCase();

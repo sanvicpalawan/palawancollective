@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { opsFetch, opsJson, useOpsStore } from "@/lib/admin-store";
+import { prepareImageForUpload } from "@/lib/image-upload";
 import { Btn, Empty, F, Panel } from "./console";
 
 function num(value: unknown, fallback: number): number {
@@ -83,7 +84,7 @@ export function LogoPanel() {
     setUploading(true);
     try {
       const form = new FormData();
-      form.append("logo", file);
+      form.append("logo", await prepareImageForUpload(file));
       const res = await opsFetch("/api/admin/logo", { method: "POST", body: form });
       const d = (await res.json()) as { ok?: boolean; url?: string; error?: string };
       if (!res.ok || !d.ok || !d.url) throw new Error(d.error || "Upload failed.");
@@ -150,7 +151,7 @@ export function LogoPanel() {
 
   return (
     <div className="grid gap-5 xl:grid-cols-2">
-      <Panel title="Site logo" sub="SVG, PNG, JPG or WebP · up to 10MB · original kept, display size set below">
+      <Panel title="Site logo" sub="SVG, PNG, JPG or WebP · images are compressed for Vercel before saving">
         <div className="flex flex-col items-start gap-4">
           <div className="flex h-32 w-full items-center justify-center overflow-hidden border border-dashed border-white/20 bg-black/30 p-4">
             {logo ? (

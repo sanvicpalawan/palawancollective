@@ -1,22 +1,26 @@
 # Dream Team photos
 
-Bundled portraits for the seeded roster in `src/lib/control.ts` (`TEAM_SEEDS`).
-Drop the files here with these exact names and they appear on the home page:
+No Dream Team portrait files are currently committed to this directory. The
+first roster seed referred to these filenames even though the files were not
+in GitHub, which made the deployed image URLs return 404:
 
-| Member                     | File                       |
-| -------------------------- | -------------------------- |
-| David Le & Quennie Azarraga | `1000057187.png`           |
-| Clint Ponce de Leon         | `1000057270_2.jpg`         |
-| Kyle Clark                  | `1000057301.jpg`           |
-| Lawrence Woodleigh          | `1000057304.jpg`           |
-| Alfie Lao                   | `1000057306.jpg`           |
-| James & Ina                 | `1000057302_2.jpg`         |
-| Tonton Varquez              | `1000057299_2.jpg`         |
+| Member | Former filename |
+| --- | --- |
+| David Le & Quennie Azarraga | `1000057187.png` |
+| Clint Ponce de Leon | `1000057270_2.jpg` |
+| Kyle Clark | `1000057301.jpg` |
+| Lawrence Woodleigh | `1000057304.jpg` |
+| Alfie Lao | `1000057306.jpg` |
+| James & Ina | `1000057302_2.jpg` |
+| Tonton Varquez | `1000057299_2.jpg` |
 
-Portrait crops around 4:5 read best (the card is `aspect-[4/5]`, object-cover).
+Seeds now leave the photo field blank and the public wall displays initials until
+real portraits are supplied. Existing databases with those old seed URLs are
+also normalized on the public wall; they are not sent to visitors as broken
+image links.
 
-Prefer not to touch the repo? Ops console → **Dream team → ⇧** uploads a photo
-straight into Postgres (`uploaded_files`, served from `/uploads/…`), so it
-survives every redeploy. A card whose photo is missing renders the member's
-initials instead of a broken image, so nothing looks broken while the files are
-still being gathered.
+To add the real photos without a code deployment, open Ops → **Dream team** and
+use the ⇧ upload button on each member. Photos are saved in Postgres and served
+from `/uploads/`, so they survive Vercel redeploys. Large raster images are
+resized in the browser to fit Vercel's function upload limit before they are
+sent. Portrait crops around 4:5 work best.

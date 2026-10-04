@@ -13,7 +13,8 @@ export const dynamic = "force-dynamic";
 // move to database storage (Vercel's filesystem is read-only; new files go to Postgres).
 const LEGACY_DIR = path.join(process.cwd(), "uploads");
 const LOGO_MIMES = new Set(["image/svg+xml", "image/png", "image/jpeg", "image/webp"]);
-const MAX_LOGO = 10 * 1024 * 1024; // big enough for high-res masters; display size is set in admin
+// Keep uploads below Vercel Functions' 4.5 MB total request-body limit.
+const MAX_LOGO = 3_500_000;
 
 const EXT_BY_MIME: Record<string, string> = {
   "image/svg+xml": ".svg",
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
     );
   }
   if (file.size > MAX_LOGO) {
-    return withOpsRefresh(Response.json({ ok: false, error: "Logo must be ≤10MB." }, { status: 400 }), gate.refresh);
+    return withOpsRefresh(Response.json({ ok: false, error: "Logo must be under 3.5 MB after compression to fit Vercel's upload limit." }, { status: 400 }), gate.refresh);
   }
 
   const buf = Buffer.from(await file.arrayBuffer());

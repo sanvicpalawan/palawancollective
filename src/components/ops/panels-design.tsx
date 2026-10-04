@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { DesignTokens } from "@/db/schema";
 import { opsFetch, opsJson, useOpsStore } from "@/lib/admin-store";
+import { assertFunctionUploadSize, prepareImageForUpload } from "@/lib/image-upload";
 import { DEFAULT_DESIGN, FONT_CHOICES, SHADOW_PRESETS, applyDesign, designCssVars, googleFontsHref } from "@/lib/design";
 import { Btn, Empty, F, Inp, Panel, Sel, Tog, Txt } from "./console";
 
@@ -311,13 +312,23 @@ export function MediaPanel() {
     if (!files || files.length === 0) return;
     setUploading(true);
     try {
-      const form = new FormData();
-      for (const f of Array.from(files).slice(0, 10)) form.append("files", f);
-      form.append("tags", tags);
-      const res = await opsFetch("/api/admin/media", { method: "POST", body: form });
-      const d = (await res.json()) as { ok?: boolean; saved?: unknown[]; error?: string };
-      if (!res.ok || !d.ok) throw new Error(d.error || "Upload failed.");
-      pushToast("ok", `${(d.saved ?? []).length} file(s) optimized + stored.`);
+      // Vercel caps the complete request body at 4.5 MB. Upload separately so
+      // several small photos can't combine into one rejected request.
+      let saved = 0;
+      for (const original of Array.from(files).slice(0, 10)) {
+        const file = original.type.startsWith("image/")
+          ? await prepareImageForUpload(original)
+          : original;
+        assertFunctionUploadSize(file);
+        const form = new FormData();
+        form.append("files", file);
+        form.append("tags", tags);
+        const res = await opsFetch("/api/admin/media", { method: "POST", body: form });
+        const d = (await res.json().catch(() => ({}))) as { ok?: boolean; saved?: unknown[]; error?: string };
+        if (!res.ok || !d.ok) throw new Error(d.error || `Upload failed (${res.status}).`);
+        saved += d.saved?.length ?? 0;
+      }
+      pushToast("ok", `${saved} file(s) optimized and saved to the database.`);
       setTags("");
       void load();
     } catch (e) {
@@ -335,7 +346,7 @@ export function MediaPanel() {
 
   return (
     <div className="space-y-5">
-      <Panel title="Upload" sub="JPG · PNG · WebP ≤15MB (auto-compressed) · MP4 ≤60MB">
+      <Panel title="Upload" sub="Images auto-compress for Vercel · MP4 ≤3.5MB per file · saved in Postgres">
         <div className="flex flex-col gap-3 sm:flex-row">
           <label className="flex flex-1 cursor-pointer items-center justify-center border border-dashed border-white/25 px-4 py-6 font-mono text-[13px] text-stone-300 hover:border-amber-300/60 hover:text-white">
             {uploading ? "Optimizing…" : "Drop files or click to browse (max 10)"}
