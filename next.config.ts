@@ -39,6 +39,12 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  /**
+   * The Neon driver owns its own transport (WebSocket on 443) and resolves
+   * environment-specific code at require time, so it must not be bundled —
+   * it is loaded from node_modules at runtime instead.
+   */
+  serverExternalPackages: ["@neondatabase/serverless"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

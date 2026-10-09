@@ -17,7 +17,7 @@ const teamSql = statements.find((statement) => statement.startsWith('CREATE TABL
 const execFileAsync = promisify(execFile);
 
 let admin: Pool;
-let pool: Pool;
+let pool: (typeof import("../src/db/index"))["pool"];
 let control: typeof import("../src/lib/control");
 let teamRoute: typeof import("../src/app/api/admin/team/route");
 let publicRoute: typeof import("../src/app/api/public/site/route");
